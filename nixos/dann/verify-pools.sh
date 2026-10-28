@@ -114,9 +114,30 @@ pool() {
   fi
 }
 
+# The unit name differs between module versions (`hermes-agent.service` today);
+# report whichever one exists rather than guessing.
+unit_state() {
+  local u
+  for u in hermes-agent hermes; do
+    if systemctl cat "$u" >/dev/null 2>&1; then
+      printf '%s %s/%s' "$u" "$(systemctl is-active "$u" 2>/dev/null)" "$(systemctl is-enabled "$u" 2>/dev/null)"
+      return 0
+    fi
+  done
+  printf 'no hermes unit found'
+}
+
 printf '=== %s on %s\n' "$(id -un)" "$(hostname)"
 printf '=== hermes %s (%s)\n' "$(hermes --version 2>&1 | head -1)" "$(command -v hermes || echo MISSING)"
-printf '=== unit %s\n' "$(systemctl is-active hermes 2>/dev/null || echo '?')"
+unit=$(unit_state)
+case "$unit" in
+  *" active/"*) printf 'UNIT    %-18s ok    %s\n' hermes-gateway "$unit" ;;
+  *)
+    printf 'UNIT    %-18s FAIL  %s\n' hermes-gateway "$unit"
+    fails=$((fails + 1))
+    ;;
+esac
+checks=$((checks + 1))
 if [ -n "$EXPECT_FILE" ]; then
   printf '=== expected lengths from %s\n' "$EXPECT_FILE"
 else
