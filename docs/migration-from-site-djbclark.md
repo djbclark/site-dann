@@ -45,6 +45,15 @@ from the host's point of view, and reversible.
 Rollback at any step before 6: revert the flake URL in `site-djbclark`, promote, upgrade again.
 After 6: roll back by restoring `nixos/dann/` from git history and flipping the URL back.
 
+## What the split gives up, deliberately
+
+`site-djbclark` has a weekly workflow (`.github/workflows/nixos-lock-update.yml`) that bumps
+`nixos/flake.lock`, builds `vps-primary` as the gate, and promotes it. While `dann` lived in
+that flake it inherited the bump. After the move, **nothing bumps `dann`'s `nixpkgs`** — the
+host runs `upgrade = false`, so its pin only moves when a commit here moves the lock. That is
+an open follow-up: either a weekly lock-update workflow in this repo that builds `dann` as its
+gate, or an explicit decision to leave the pin where it is.
+
 ## Constraint that does not change
 
 Never edit `/etc/nixos` on the host and never run `nixos-rebuild` by hand. Deployment is
