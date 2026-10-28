@@ -1,0 +1,18 @@
+# Secret values and local credentials. Declarations remain committed.
+.env
+*.env
+*.pem
+*.key
+*.crt
+id_*
+
+# Local caches and editor state.
+.DS_Store
+__pycache__/
+*.pyc
+.pytest_cache/
+graft/
+
+# Pool expectation files are private (exact key lengths) — they live in
+# site-private-dann, never here.
+pool-expectations*
