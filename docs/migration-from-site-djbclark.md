@@ -1,20 +1,34 @@
 # Moving `dann.dclark.us`'s configuration out of `site-djbclark`
 
-**State as of 2026-10-28.** djbclark's ruling: `dann.dclark.us` and Dann itself are a
-*separate entity/site* from him. Dann's site is `site-dann` (public) + `site-private-dann`
-(private); djbclark's are `site-djbclark` (public) and `site-private` (→ `site-private-djbclark`).
+**State as of 2026-10-28: DONE — the host builds from this repo.** djbclark's ruling:
+`dann.dclark.us` and Dann itself are a *separate entity/site* from him. Dann's site is
+`site-dann` (public, this repo) + `site-private-dann` (private); djbclark's are
+`site-djbclark` (public) and `site-private` (→ `site-private-djbclark`).
 
-**Today the config still lives in djbclark's repo:**
+What actually happened, in order:
 
-| Piece                     | Where it is now                                                       |
-| ------------------------- | --------------------------------------------------------------------- |
-| NixOS config for the host | `site-djbclark/nixos/dann/` (`configuration.nix`, `disko.nix`, `hermes.nix`) |
-| Flake + lock              | `site-djbclark/nixos/flake.nix` (shared with `vps-primary`, `?dir=nixos`) |
-| sops secrets              | `site-djbclark/nixos/dann/secrets/{dann,pools}.yaml`                  |
-| Deployed from             | `github:djbclark/site-djbclark/deploy-dann?dir=nixos#dann`            |
-| What this repo has        | the runbooks and the verification harness, not the deployed source    |
+1. Seeded `nixos/` here as a standalone flake, carrying `flake.lock` across verbatim and
+   pruning only the root inputs `vps-primary` needs (`athena-nixos`, `bb-nix`, `nixathena`,
+   `paseo-nix`).
+2. Proved equivalence on the host, revision-neutrally (both trees in plain, non-git
+   directories so `self.rev` is null on both): **identical toplevel drv**,
+   `/nix/store/phnyziwdam8cl8ijpia46bfyb9j70s1k-nixos-system-dann-26.05.20261025.1f607aa.drv`.
+3. Published `deploy-dann` here at `cc9311a`; the host resolved the URL and inputs before
+   anything was switched.
+4. Flipped the one line in `site-djbclark/nixos/dann/configuration.nix` (`cd74f2e`),
+   promoted it to that repo's `deploy-dann`, ran `systemctl start nixos-upgrade` → the host
+   came up on `cd74f2e`.
+5. Ran `systemctl start nixos-upgrade` again — the first run that actually read this repo →
+   the host reported `cc9311a`, `hermes-agent` active/enabled, `NRestarts=0`, and
+   `verify-pools.sh` passed **12/12** (secrets unchanged through the new sops path).
+6. Retired `nixos/dann/` and the `dann` output + its three inputs from
+   `site-djbclark/nixos/flake.nix`, having first proved `vps-primary`'s toplevel drv was
+   unchanged by the pruning. That directory is now a pointer README.
 
-## Why the move is staged, not a copy-paste
+Rollback: revert `cd74f2e` in `site-djbclark`, promote, upgrade. The old tree is in that
+repo's git history; nothing was ever deleted from it without history.
+
+## Why the move was staged, not a copy-paste
 
 `system.autoUpgrade` on the host names that exact flake URL and branch. The moment the config
 moves and the branch that the host pulls still builds the *old* tree, the host silently

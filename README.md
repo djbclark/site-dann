@@ -26,12 +26,15 @@ freely, but Dann's host facts, runbooks and diagnostics live here or in `site-pr
 
 ## Status
 
-The NixOS configuration for `dann.dclark.us` still lives in
-[`site-djbclark/nixos/dann/`](https://github.com/djbclark/site-djbclark/tree/master/nixos/dann)
-and deploys from that repo's `deploy-dann` branch. Moving it here is an open task with a
-deliberate order — see
-[docs/migration-from-site-djbclark.md](docs/migration-from-site-djbclark.md). Until that
-switch happens, treat this repo as the *destination and the runbooks*, not the deployed source.
+**Migration done, 2026-10-28.** This repo is the deployed source for `dann.dclark.us`:
+`github:djbclark/site-dann/deploy-dann?dir=nixos#dann`. The host switched from
+`site-djbclark` and now reports this repo's revision
+(`nixos-version --configuration-revision`); `site-djbclark/nixos/dann/` is a pointer only.
+The move was proved closure-neutral before it happened (identical toplevel drv from both
+trees) — see [docs/migration-from-site-djbclark.md](docs/migration-from-site-djbclark.md).
+
+Open follow-up: nothing bumps this repo's `nixpkgs` pin (the host runs `upgrade = false`),
+where `site-djbclark`'s weekly workflow used to.
 
 ## Working in this repo
 
