@@ -8,8 +8,9 @@
 
 # The entity's own host: "dann" (dann.dclark.us), an OVH VPS-3 in Beauharnois (BHS), Canada.
 # Installed 2026-10-25 with nixos-anywhere from vps-primary. This file is the *installed*
-# configuration; the live config is the flake at github:djbclark/site-djbclark, promoted to
-# a deploy branch (docs/nixos-in-git.md). Never edit /etc/nixos on the host.
+# configuration; the live config is the flake at github:djbclark/site-dann (this repo),
+# promoted to its deploy-dann branch (docs/migration-from-site-djbclark.md). Never edit
+# /etc/nixos on the host.
 {
   imports = [
     (modulesPath + "/profiles/qemu-guest.nix")
@@ -17,6 +18,9 @@
     # because it is a whole subsystem: provider entries, model policy, and the sops secrets only
     # it consumes. It imports nothing and declares `services.hermes-agent` itself.
     ./hermes.nix
+    # The daily proof that those pools and that gateway still work, and the on-disk result the
+    # off-host pager reads (2026-10-28).
+    ./pool-verify.nix
   ];
 
   # ── Filesystems ──────────────────────────────────────────────────────────────────────

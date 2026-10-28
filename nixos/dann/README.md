@@ -69,6 +69,36 @@ POOL_EXPECT=~/.config/dann/pool-expectations bash verify-pools.sh   # NAME:bytes
 Without that file the script checks presence, the `NAME=` prefix, a plausible length and a
 real completion — which is what actually catches a bad, rotated or truncated key.
 
+## The daily verification, and where its result goes
+
+Since 2026-10-28 the host runs that same script itself, once a day, as a systemd oneshot
+(`pool-verify.service`, `pool-verify.timer` at 05:20 UTC + up to 30 min; defined in
+[`pool-verify.nix`](pool-verify.nix)). It runs as `hermes`, so nothing needs `dann`'s sudo rule,
+and it writes both the journal and two files:
+
+| Path | What |
+| --- | --- |
+| `/var/lib/pool-verify/last` | the whole report, first line `=== pool-verify <ISO time> exit=<n>` |
+| `/var/lib/pool-verify/last.exit` | just the exit status; `0` means everything passed |
+
+```bash
+sudo -n systemctl start pool-verify          # run it now
+journalctl -u pool-verify -n 80              # today's report
+cat /var/lib/pool-verify/last                # the last report, timestamped
+systemctl list-timers pool-verify            # when it next runs
+```
+
+The exact script that runs is installed at `/etc/pool-verify/verify-pools.sh` (from this repo at
+activation, so it cannot drift). Private expectations still work without a rebuild — drop them at
+`/etc/pool-verify/expect` as `NAME:bytes` lines and the runner exports `POOL_EXPECT` pointing at
+it; nothing about key lengths enters git.
+
+**The host does not page anybody.** It has no messaging platform by design, so alerting lives off
+the host: djbclark's `fleet-watch dann` (on his Mac, every 5 minutes) reads these two files over
+ssh and sends one Telegram notice per incident — unreachable, failed upgrade, gateway down,
+verification failed, verification stale (36 h), or failed units — and one on recovery. `fleet-watch
+dann` reads the state on demand.
+
 ## Rotating a pool key
 
 1. Get the new key from whoever owns that pool (djbclark or the operator). It never enters a
