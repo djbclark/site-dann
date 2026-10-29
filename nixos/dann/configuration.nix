@@ -21,6 +21,12 @@
     # The daily proof that those pools and that gateway still work, and the on-disk result the
     # off-host pager reads (2026-10-28).
     ./pool-verify.nix
+    # The entity's own credentials and the sudo-secretspec privilege boundary (2026-10-29). Kept
+    # in its own file because it is a whole subsystem: the sops secrets only it consumes, the
+    # `services.sudo-secretspec` enable, and the import-from-derivation the imported module needs.
+    # It imports nothing and declares those itself; the module that defines the option is imported
+    # in nixos/flake.nix BEFORE this file.
+    ./sudo-secretspec.nix
   ];
 
   # ── Filesystems ──────────────────────────────────────────────────────────────────────

@@ -121,3 +121,29 @@ dann` reads the state on demand.
 
 `OPENCODE_GO_API_KEY` (unprefixed) is **not** one of the five pools; it belongs to djbclark
 and must not be touched from here.
+
+## Dann's own credentials (sudo-secretspec)
+
+The host also holds **Dann's own** credentials, under the `sudo-secretspec` privilege boundary
+([`sudo-secretspec.nix`](sudo-secretspec.nix) + [`secretspec-manifest.toml`](secretspec-manifest.toml)).
+This is a *separate* secret family from the five pools above: those flow declaratively through
+sops → `environmentFiles` → hermes `.env`, and this one is what the entity itself reads and
+mutates at runtime.
+
+Be accurate about what this boundary is on this host: **it is friction and an audit trail, not a
+security boundary** — `dann` is root-equivalent (see `configuration.nix`), so nothing here stops a
+`sudo cat` of the vault. It buys a named broker verb with a required `--reason` and a searchable
+ledger. The honest statement, including the split below, is the design note in the source repo:
+`docs/design/dann-deployment-threat-model.md` (frdminc/sudo-secretspec).
+
+| Where                                    | Secret                                                                 |
+| ---------------------------------------- | ---------------------------------------------------------------------- |
+| sops `nixos/dann/secrets/sudo-secretspec.yaml` (owner `dann`, `0400`, **plain** values) | `GITHUB_TOKEN`, `GMAIL_OAUTH_CLIENT_ID`, `GMAIL_OAUTH_CLIENT_SECRET` |
+| vault (`/var/lib/sudo-secretspec`, runtime) | `GMAIL_OAUTH_REFRESH_TOKEN` (rotates at runtime; re-auth after reinstall) |
+
+Unlike the pools' `NAME=value` lines, these sops values are **bare** values: the consumer is
+`dann` reading `/run/secrets/<NAME>` directly, so the file content *is* the credential.
+
+To seed the vault on a fresh install, add the refresh token at runtime through the broker
+(`sudo-secretspec source-add` / `source-set` with a `--reason`); the committed
+`secretspec-manifest.toml` is declarations only, never values.

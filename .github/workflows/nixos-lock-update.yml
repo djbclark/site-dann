@@ -76,6 +76,10 @@ jobs:
           extra_nix_config: |
             experimental-features = nix-command flakes
             access-tokens = github.com=${{ github.token }}
+            # The sudo-secretspec module derives its sudoers policy from the broker binary via
+            # import-from-derivation (see nixos/dann/sudo-secretspec.nix), so the gate build
+            # here needs the same allow the host sets in nix.settings.
+            allow-import-from-derivation = true
 
       - name: Update flake.lock
         id: update
