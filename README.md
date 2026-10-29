@@ -33,8 +33,14 @@ freely, but Dann's host facts, runbooks and diagnostics live here or in `site-pr
 The move was proved closure-neutral before it happened (identical toplevel drv from both
 trees) — see [docs/migration-from-site-djbclark.md](docs/migration-from-site-djbclark.md).
 
-Open follow-up: nothing bumps this repo's `nixpkgs` pin (the host runs `upgrade = false`),
-where `site-djbclark`'s weekly workflow used to.
+Weekly, [`.github/workflows/nixos-lock-update.yml`](.github/workflows/nixos-lock-update.yml)
+bumps `nixos/flake.lock`, **builds `dann` on the runner as the gate**, commits the lock to
+`master` and fast-forwards `deploy-dann` to it — the host itself runs `upgrade = false`, so this
+workflow is the only thing that ever moves its inputs. A failure, or nixos changes left
+unpromoted on `master`, opens one `nixos-lock` issue and pings Telegram; the issue closes itself
+when a later run finds nothing outstanding. It needs `TELEGRAM_BOT_TOKEN`,
+`TELEGRAM_CHAT_ID` and `TELEGRAM_THREAD_ID` as repository secrets — again after this repo moves
+to Dann's own account.
 
 ## Working in this repo
 
