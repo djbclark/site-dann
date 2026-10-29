@@ -48,11 +48,12 @@
   # no interpreter-family pin, so the host's 26.05 builds it fine, and one shared nixpkgs is
   # one less thing to reason about at a privilege boundary.
   #
-  # TEMPORARY REF: `linux-port` is the port branch. Once the linux-port PR merges into
-  # `sudo-main`, repoint this to `github:frdminc/sudo-secretspec/sudo-main` and re-lock
-  # (operator step; there is no nix on the Mac to do it here).
+  # `sudo-main` is the shipping branch for the Linux/NixOS port (PR #7 merged 2026-10-29,
+  # N1/N2 fixes in PR #8). Repointed here from `linux-port`; the flake.lock still has no
+  # sudo-secretspec node, so a re-lock is required before this evaluates (operator/CI step —
+  # no nix on the Mac; `nix flake lock` on the VPS or `nixos-lock-update.yml`).
   inputs.sudo-secretspec = {
-    url = "github:frdminc/sudo-secretspec/linux-port";
+    url = "github:frdminc/sudo-secretspec/sudo-main";
     inputs.nixpkgs.follows = "nixpkgs";
   };
 
