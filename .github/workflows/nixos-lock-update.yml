@@ -81,19 +81,45 @@ jobs:
         id: update
         run: |
           set -euo pipefail
-          old=$(jq -r '.nodes.nixpkgs.locked.rev[0:7]' nixos/flake.lock)
+          # The revs are read THROUGH the root's input mapping, not off a node literally named
+          # "nixpkgs": here the direct input maps to node nixpkgs_2 (hermes-agent brings its own
+          # "nixpkgs" node, which nobody follows). Reading .nodes.nixpkgs reports that unused
+          # node and prints "nixpkgs X -> X" on every run.
+          np_node() {
+            local node
+            node=$(jq -r '.nodes.root.inputs.nixpkgs' "$1")
+            jq -r --arg n "$node" '.nodes[$n].locked.rev[0:7]' "$1"
+          }
+          # Every direct input that moved, so an inputs-only bump is described honestly.
+          moved() {
+            local old=$1 new=$2 skip=$3 key n_old n_new out=""
+            for key in $(jq -r '.nodes.root.inputs | keys[]' "$old"); do
+              [ "$key" = "$skip" ] && continue
+              n_old=$(jq -r --arg k "$key" '.nodes.root.inputs[$k] | if type == "string" then . else .[0] end' "$old")
+              n_new=$(jq -r --arg k "$key" '.nodes.root.inputs[$k] | if type == "string" then . else .[0] end' "$new")
+              if [ "$(jq -r --arg n "$n_old" '.nodes[$n].locked.rev // ""' "$old")" != \
+                   "$(jq -r --arg n "$n_new" '.nodes[$n].locked.rev // ""' "$new")" ]; then
+                out="${out:+$out, }$key"
+              fi
+            done
+            printf '%s' "$out"
+          }
+          cp nixos/flake.lock /tmp/lock.before
+          old=$(np_node /tmp/lock.before)
           nix flake update --flake ./nixos
-          new=$(jq -r '.nodes.nixpkgs.locked.rev[0:7]' nixos/flake.lock)
+          new=$(np_node nixos/flake.lock)
           if git diff --quiet -- nixos/flake.lock; then
             echo "changed=false" >>"$GITHUB_OUTPUT"
             echo "flake.lock already current (nixpkgs $old)."
           else
+            others=$(moved /tmp/lock.before nixos/flake.lock nixpkgs)
             {
               echo "changed=true"
               echo "old=$old"
               echo "new=$new"
+              echo "others=$others"
             } >>"$GITHUB_OUTPUT"
-            echo "nixpkgs $old -> $new"
+            echo "nixpkgs $old -> $new; also moved: ${others:-nothing else}"
           fi
 
       - name: Simulated failure (test of the alarm path)
@@ -114,12 +140,17 @@ jobs:
         env:
           OLD: ${{ steps.update.outputs.old }}
           NEW: ${{ steps.update.outputs.new }}
+          OTHERS: ${{ steps.update.outputs.others }}
         run: |
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          subject="nixos: bump flake.lock, nixpkgs ${OLD} -> ${NEW}"
+          if [ -n "${OTHERS}" ]; then
+            subject="${subject} (with ${OTHERS})"
+          fi
           git add nixos/flake.lock
-          git commit -m "nixos: bump flake.lock, nixpkgs ${OLD} -> ${NEW} (dann builds)"
+          git commit -m "${subject}; dann builds"
           for _ in 1 2 3; do
             git pull --rebase --quiet origin master
             if git push origin HEAD:master; then
