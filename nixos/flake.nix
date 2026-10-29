@@ -40,6 +40,22 @@
   # family). The host's nixpkgs is therefore not a constraint on this package at all.
   inputs.hermes-agent.url = "github:djbclark/hermes-agent";
 
+  # sudo-secretspec: the privilege boundary for dann's own credentials. A flake input rather
+  # than a nixpkgs package because it ships its own declarative NixOS module
+  # (`nixosModules.default`) together with the package, and that module derives its sudoers
+  # policy from the broker binary via import-from-derivation. It DOES follow the host's
+  # nixpkgs (unlike hermes-agent): the package is plain Rust with a committed Cargo.lock and
+  # no interpreter-family pin, so the host's 26.05 builds it fine, and one shared nixpkgs is
+  # one less thing to reason about at a privilege boundary.
+  #
+  # TEMPORARY REF: `linux-port` is the port branch. Once the linux-port PR merges into
+  # `sudo-main`, repoint this to `github:frdminc/sudo-secretspec/sudo-main` and re-lock
+  # (operator step; there is no nix on the Mac to do it here).
+  inputs.sudo-secretspec = {
+    url = "github:frdminc/sudo-secretspec/linux-port";
+    inputs.nixpkgs.follows = "nixpkgs";
+  };
+
   outputs =
     {
       self,
@@ -47,6 +63,7 @@
       disko,
       hermes-agent,
       sops-nix,
+      sudo-secretspec,
       ...
     }:
     {
@@ -63,6 +80,11 @@
           # `services.hermes-agent` — declared in ./dann/hermes.nix. Imported BEFORE the host
           # config so the host file can read `config.sops.secrets` paths it defines.
           hermes-agent.nixosModules.default
+          # `services.sudo-secretspec` — declared in ./dann/sudo-secretspec.nix, which also
+          # declares the sops secrets the module's broker reads. Imported BEFORE the host config
+          # for the same reason: so ./dann/sudo-secretspec.nix can set the option and its sops
+          # consumers.
+          sudo-secretspec.nixosModules.default
           ./dann/configuration.nix
           ./dann/disko.nix
           # `nixos-version --configuration-revision` on the host then names the git commit.
