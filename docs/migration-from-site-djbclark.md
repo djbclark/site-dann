@@ -23,10 +23,16 @@ What actually happened, in order:
    `verify-pools.sh` passed **12/12** (secrets unchanged through the new sops path).
 6. Retired `nixos/dann/` and the `dann` output + its three inputs from
    `site-djbclark/nixos/flake.nix`, having first proved `vps-primary`'s toplevel drv was
-   unchanged by the pruning. That directory is now a pointer README.
+   unchanged by the pruning.
+7. **2026-10-28, later:** deleted `site-djbclark`'s `deploy-dann` branch (was `cd74f2e`, the
+   retirement trampoline) and the remaining `nixos/dann/` pointer, once the host had been
+   verified on this repo (`c473b5f`, `pool-verify.timer` active). Rollback is no longer
+   "promote that branch": it is restoring the tree from `site-djbclark`'s git history and
+   flipping the URL in `nixos/dann/configuration.nix` back, per the block below.
 
-Rollback: revert `cd74f2e` in `site-djbclark`, promote, upgrade. The old tree is in that
-repo's git history; nothing was ever deleted from it without history.
+Rollback: the old tree is in `site-djbclark`'s git history (`git show cd74f2e:nixos/dann/…`),
+and the host's previous generations are still on disk. Nothing has been deleted without
+history.
 
 ## Why the move was staged, not a copy-paste
 
@@ -57,16 +63,23 @@ from the host's point of view, and reversible.
    file staged at `/tmp`.
 
 Rollback at any step before 6: revert the flake URL in `site-djbclark`, promote, upgrade again.
-After 6: roll back by restoring `nixos/dann/` from git history and flipping the URL back.
+After 6: roll back by restoring `nixos/dann/` from `site-djbclark`'s git history (`cd74f2e`) and
+flipping the URL in `nixos/dann/configuration.nix` back here — after step 7 there is no branch
+there to promote to, so this is a rebuild in this repo, not a switch in that one.
 
 ## What the split gives up, deliberately
 
 `site-djbclark` has a weekly workflow (`.github/workflows/nixos-lock-update.yml`) that bumps
 `nixos/flake.lock`, builds `vps-primary` as the gate, and promotes it. While `dann` lived in
 that flake it inherited the bump. After the move, **nothing bumps `dann`'s `nixpkgs`** — the
-host runs `upgrade = false`, so its pin only moves when a commit here moves the lock. That is
-an open follow-up: either a weekly lock-update workflow in this repo that builds `dann` as its
-gate, or an explicit decision to leave the pin where it is.
+host runs `upgrade = false`, so its pin only moves when a commit here moves the lock.
+
+That gap is closed: [`.github/workflows/nixos-lock-update.yml`](../.github/workflows/nixos-lock-update.yml)
+in this repo does the same job for `dann` — weekly lock bump, `dann`'s toplevel built on the
+runner as the gate, commit to `master`, fast-forward `deploy-dann` when nothing else under
+`nixos/` is waiting, one `nixos-lock` issue plus a Telegram message on failure. It bumps every
+input (disko, sops-nix, hermes-agent too), which is safe only because the runner builds the
+result before anything is promoted.
 
 ## Constraint that does not change
 

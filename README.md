@@ -29,7 +29,8 @@ freely, but Dann's host facts, runbooks and diagnostics live here or in `site-pr
 **Migration done, 2026-10-28.** This repo is the deployed source for `dann.dclark.us`:
 `github:djbclark/site-dann/deploy-dann?dir=nixos#dann`. The host switched from
 `site-djbclark` and now reports this repo's revision
-(`nixos-version --configuration-revision`); `site-djbclark/nixos/dann/` is a pointer only.
+(`nixos-version --configuration-revision`). That repo's `deploy-dann` branch and `nixos/dann/`
+are **gone**, so there is no second tree for the host to fall back onto.
 The move was proved closure-neutral before it happened (identical toplevel drv from both
 trees) — see [docs/migration-from-site-djbclark.md](docs/migration-from-site-djbclark.md).
 
