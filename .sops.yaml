@@ -13,9 +13,9 @@
 keys:
   # dann.dclark.us — the host. Public key only.
   - &dann age1kpu8804m763x7aet9pwhm92k4h44qmk34xmxg3yynhdsct5f4pfqrv548p
-  # The operator's own age key, for break-glass decryption without the host.
-  # NOT YET CREATED — deliberately left as a placeholder rather than invented. When djbclark
-  # generates one (`age-keygen`), add it here so a lost host key is recoverable.
+  # djbclark's break-glass age key — decrypt without the host. The private key lives
+  # in the Mac sudo-secretspec vault as SOPS_AGE_BREAKGLASS_KEY (never in git).
+  - &djbclark age168ewnmncaqsxwnry45zuacl88xtmjt8kfy6xrsjskhj3vmwdj5aq68urt2
 
 creation_rules:
   # Every secret file under this tree. `path_regex` is matched against the file path.
@@ -23,3 +23,4 @@ creation_rules:
     key_groups:
       - age:
           - *dann
+          - *djbclark
