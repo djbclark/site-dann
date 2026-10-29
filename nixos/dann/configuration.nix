@@ -102,7 +102,7 @@
   #
   # What actually mitigates the blast radius (and this is the honest list):
   #   1. The box is DISPOSABLE. Its whole configuration is in git
-  #      (site-djbclark nixos/dann/, on deploy-dann), and a full reinstall measured ~2 minutes
+  #      (this repo's `nixos/dann/`, on `deploy-dann`), and a full reinstall measured ~2 minutes
   #      on 2026-10-25. There is nothing on it that cannot be rebuilt.
   #   2. It holds no data of its own yet — the entity's memory still lives on the Mac, which is
   #      exactly why phase 1 (memory) must add its own guards rather than relying on this one.
@@ -146,7 +146,11 @@
   system.autoUpgrade = {
     enable = true;
     operation = "switch";
-    flake = "github:djbclark/site-djbclark/deploy-dann?dir=nixos#dann";
+    # The host's own site, not djbclark's: this line is what makes site-dann the source of
+    # record after the 2026-10-28 split. It must name THIS repo; pointing it back at
+    # site-djbclark/deploy-dann would resurrect that repo's retirement trampoline and flip
+    # the host between two configs on alternate nights.
+    flake = "github:djbclark/site-dann/deploy-dann?dir=nixos#dann";
     upgrade = false;
     dates = "04:00";
     randomizedDelaySec = "45min";

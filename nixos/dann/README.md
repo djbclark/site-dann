@@ -13,8 +13,9 @@ its own provider entry and its own sops-managed credential.
 | Secrets       | sops → `/run/secrets/<NAME>` (`0400 root`), flat names = env var names                  |
 | Upgrade       | `system.autoUpgrade` daily 04:00 ±45 min from the `deploy-dann` branch; manual: `systemctl start nixos-upgrade` |
 
-Config lives in `site-djbclark/nixos/dann/` today (see
-[../docs/migration-from-site-djbclark.md](../docs/migration-from-site-djbclark.md)).
+Config lives in this repo, `nixos/dann/`; this file and the host's `system.autoUpgrade`
+URL are the two places the host is wired to (see
+[../../docs/migration-from-site-djbclark.md](../../docs/migration-from-site-djbclark.md)).
 
 ## The five pools
 
