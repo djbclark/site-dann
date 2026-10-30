@@ -194,7 +194,8 @@
         "disko": "disko",
         "hermes-agent": "hermes-agent",
         "nixpkgs": "nixpkgs_2",
-        "sops-nix": "sops-nix"
+        "sops-nix": "sops-nix",
+        "sudo-secretspec": "sudo-secretspec"
       }
     },
     "sops-nix": {
@@ -214,6 +215,27 @@
       "original": {
         "owner": "Mic92",
         "repo": "sops-nix",
+        "type": "github"
+      }
+    },
+    "sudo-secretspec": {
+      "inputs": {
+        "nixpkgs": [
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1793270569,
+        "narHash": "sha256-exMdJ6Tn4GQltPjOKVpmuHqVH6RJ5hhi+NoqBza++KM=",
+        "owner": "frdminc",
+        "repo": "sudo-secretspec",
+        "rev": "7ae32f8aa622bbc3c9addeba0e44e9c0134a412a",
+        "type": "github"
+      },
+      "original": {
+        "owner": "frdminc",
+        "ref": "sudo-main",
+        "repo": "sudo-secretspec",
         "type": "github"
       }
     },
