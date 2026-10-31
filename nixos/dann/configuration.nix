@@ -213,6 +213,9 @@
     # age is here so the operator (or a future session) can inspect or re-key without a nix shell.
     age
     sops
+    # Steam/Proton launcher wrapper (thcrap is the Touhou Community Reliant Automatic Patcher).
+    # Requested on 2026-10-31; see the PR for the closure-size caveat on a headless host.
+    thcrap-steam-proton-wrapper
   ];
 
   services.journald.extraConfig = "SystemMaxUse=200M";
