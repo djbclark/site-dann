@@ -61,6 +61,9 @@ mean anything.)
 Run as `dann` instead and the Hermes calls fail with `PermissionError` on `.env`; run as
 `hermes` and the `/run/secrets` branch is unavailable (that sudo rule is `dann`'s), so the
 secret check falls back to `$HERMES_HOME/.env`, which the module fills with the same lines.
+Set `POOL_VERIFY_NO_SUDO=1` when running as a user with no sudo rule — the daily timer does — so
+the harness skips the `/run/secrets` branch instead of spending five denied sudo attempts a run
+in the auth journal.
 
 Exit status: `0` all checks pass, `1` something failed (each failing line says what).
 Exact key lengths are not in this repo — not because they are secret (a sops ciphertext is as
