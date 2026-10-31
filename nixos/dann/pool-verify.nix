@@ -33,8 +33,11 @@ let
     report="$(mktemp)"
     trap 'rm -f "$report"' EXIT
 
-    # Optional private expectations (exact NAME=value line lengths). Never in this public repo;
-    # drop the file in place and the harness's length check starts working with no rebuild.
+    # Optional expectations (exact NAME=value line lengths), read from the host rather than from
+    # this public repo: they are a measurement of THIS host, not a shared artifact. They are not
+    # a secret - a sops ciphertext is as long as its plaintext, so nixos/dann/secrets/pools.yaml
+    # already publishes these numbers to anyone who base64-decodes it. Drop the file in place and
+    # the harness's length check starts working with no rebuild.
     [ -r /etc/pool-verify/expect ] && export POOL_EXPECT=/etc/pool-verify/expect
 
     rc=0
@@ -77,14 +80,18 @@ in
       Group = config.services.hermes-agent.group;
       ExecStart = runner;
       StateDirectory = "pool-verify";
-      StateDirectoryMode = "0755";
+      # The report names the pools, their status and (with an expect file) their lengths. It is
+      # read by `dann` through group membership in hermes (fleet-watch reads it over ssh), not by
+      # every local user, so the directory is group-only and the files it writes are 0640.
+      StateDirectoryMode = "0750";
       # Six real completions with a 240 s cap each; 30 min is generous and still bounded.
       TimeoutStartSec = "1800";
       # A failed verification is information, not a service fault: it must not be restarted in a
       # loop (that would burn pool quota) and it must not mark the unit as needing rescue.
       Restart = "no";
-      # Keep the last result readable even if the pool keys are what broke.
-      UMask = "0022";
+      # Keep the last result readable by dann (via the hermes group) even if the pool keys are
+      # what broke — and not by anyone else: no world bits and no group write.
+      UMask = "0027";
       Environment = [
         "HOME=/var/lib/hermes"
         "HERMES_HOME=/var/lib/hermes/.hermes"

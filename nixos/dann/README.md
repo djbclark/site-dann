@@ -60,8 +60,9 @@ Run as `dann` instead and the Hermes calls fail with `PermissionError` on `.env`
 secret check falls back to `$HERMES_HOME/.env`, which the module fills with the same lines.
 
 Exit status: `0` all checks pass, `1` something failed (each failing line says what).
-Expected key lengths are **not** in this public repo; supply them privately and the script
-compares them too:
+Exact key lengths are not in this repo — not because they are secret (a sops ciphertext is as
+long as its plaintext, so [`secrets/pools.yaml`](secrets/pools.yaml) already publishes them) but
+because they measure one host at one time. Supply them and the script compares them too:
 
 ```bash
 POOL_EXPECT=~/.config/dann/pool-expectations bash verify-pools.sh   # NAME:bytes per line
@@ -90,9 +91,15 @@ systemctl list-timers pool-verify            # when it next runs
 ```
 
 The exact script that runs is installed at `/etc/pool-verify/verify-pools.sh` (from this repo at
-activation, so it cannot drift). Private expectations still work without a rebuild — drop them at
+activation, so it cannot drift). Expectations still work without a rebuild — drop them at
 `/etc/pool-verify/expect` as `NAME:bytes` lines and the runner exports `POOL_EXPECT` pointing at
-it; nothing about key lengths enters git.
+it. They live on the host, not in git, because they describe this host: an exact length changes
+whenever a key is rotated, and a stale copy in a repo is worse than none. They are not secret —
+the committed ciphertext in [`secrets/pools.yaml`](secrets/pools.yaml) is as long as the values
+it holds.
+
+The service writes both files as `hermes:hermes` with mode `0640` in a `0750` directory, so
+`dann` reads them through the `hermes` group and other local users cannot.
 
 **The host does not page anybody.** It has no messaging platform by design, so alerting lives off
 the host: djbclark's `fleet-watch dann` (on his Mac, every 5 minutes) reads these two files over

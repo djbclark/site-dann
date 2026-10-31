@@ -9,7 +9,7 @@ from djbclark's site (2026-10-28, djbclark's ruling).
 | djbclark (public) | [site-djbclark](https://github.com/djbclark/site-djbclark) | djbclark    | his laptops, his VPSs, his inventories                            |
 | djbclark (private)| `site-private` (→ `site-private-djbclark`)  | djbclark                  | his private memory, secrets-adjacent notes                        |
 | **Dann (public)** | **this repo**                              | **Dann**                  | **`dann.dclark.us` and Dann's own host-side tooling**             |
-| Dann (private)    | [site-private-dann](https://github.com/djbclark/site-private-dann) | Dann | Dann's private memory and diagnostics (exact key lengths, hosts)  |
+| Dann (private)    | [site-private-dann](https://github.com/djbclark/site-private-dann) | Dann | Dann's private memory and diagnostics (host inventories, observed key lengths)  |
 
 djbclark's repos are **reference material, not this site's content**: copy patterns from them
 freely, but Dann's host facts, runbooks and diagnostics live here or in `site-private-dann`.

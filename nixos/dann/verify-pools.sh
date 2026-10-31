@@ -14,10 +14,12 @@
 # stream: a file whose first line is not `NAME=value` yields no value byte at
 # all, because at most ${#name}+1 bytes are read and never captured.
 #
-# Expected lengths are deliberately NOT in this public repo. Supply them
-# privately as NAME:bytes lines (the byte size of the whole `NAME=value` line —
-# the stat size of /run/secrets/<NAME>, and the .env line length) and the
-# script compares them too:
+# Expected lengths are not in this file. They are not a secret either: a sops ciphertext is
+# exactly as long as its plaintext, so nixos/dann/secrets/pools.yaml in this same public repo
+# already publishes them. They stay out of the repo because they measure one host at one time,
+# not because knowing them helps anyone. Supply them as NAME:bytes lines (the byte size of the
+# whole `NAME=value` line — the stat size of /run/secrets/<NAME>, and the .env line length) and
+# the script compares them too:
 #
 #   POOL_EXPECT=~/.config/dann/pool-expectations bash verify-pools.sh
 #

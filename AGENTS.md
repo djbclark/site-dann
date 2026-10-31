@@ -19,11 +19,12 @@ An agent working here is a seat of the composite entity **Dann**:
 
 ## Rules for this site
 
-1. **Secrets: `sudo-secretspec` only**, after loading its skill. Never read, print, copy or
+3. **Secrets: `sudo-secretspec` only**, after loading its skill. Never read, print, copy or
    pass a secret value in argv, `ps`, a transcript or a commit. Key material that must be
    committed is sops ciphertext (`.yaml` with `ENC[AES256_GCM` values) and nothing else.
-   Exact key lengths, key fingerprints and host credentials are **private**: they belong in
-   `site-private-dann`, not here.
+   Host credentials and host measurements (exact key lengths, host inventories) belong in
+   `site-private-dann`, not here — not because a length is secret (a sops ciphertext is as
+   long as its plaintext, so the committed ciphertext publishes it) but because it dates.
 2. **Never edit `/etc/nixos` on the host and never run `nixos-rebuild` by hand.** Deploy by
    promoting `master` to the `deploy-dann` branch, then `systemctl start nixos-upgrade` on
    the host; verify the running system's revision afterwards.
