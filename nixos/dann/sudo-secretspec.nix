@@ -12,7 +12,7 @@
 #
 # The authoritative, honest statement of this (and why no pool key or Google password is here)
 # is the design note in the sudo-secretspec repo:
-#   https://github.com/frdminc/sudo-secretspec/blob/linux-port/docs/design/dann-deployment-threat-model.md
+#   https://github.com/frdminc/sudo-secretspec/blob/sudo-main/docs/design/dann-deployment-threat-model.md
 # (H6/M1). Read it before changing what goes in the vault.
 #
 # THE SPLIT (that note's M1 table): static secrets stay in SOPS; only secrets the entity mutates
@@ -32,9 +32,10 @@
 {
   # ── The entity's static credentials (sops) ───────────────────────────────────────────────
   # One encrypted file for the whole group, next to the one consumer (this module), exactly the
-  # pattern hermes.nix uses for pools.yaml. `validateSopsFiles = true` (configuration.nix) means
-  # this branch does NOT evaluate until the operator has `sops`-encrypted the three keys into
-  # ./secrets/sudo-secretspec.yaml with real values — that is deliberate, not an accident.
+  # pattern hermes.nix uses for pools.yaml. The three keys are encrypted with real values and the
+  # module builds on the host (live since 2026-10-28). `validateSopsFiles = true`
+  # (configuration.nix) is the guard that keeps it that way: a placeholder or missing ciphertext
+  # fails evaluation instead of deploying a credential the broker cannot read.
   sops.secrets = lib.genAttrs [
     "GITHUB_TOKEN"
     "GMAIL_OAUTH_CLIENT_ID"

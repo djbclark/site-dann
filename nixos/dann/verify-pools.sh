@@ -6,8 +6,12 @@
 # /run/secrets/<NAME> is 0400 root, which is why the secret check falls back to
 # .env when it cannot use passwordless sudo.
 #
+# Run the DEPLOYED copy, never an scp'd /tmp one: environment.etc installs this exact file at
+# /etc/pool-verify/verify-pools.sh on every activation, so a manual run exercises the same bytes
+# the timer runs and cannot drift from the repo.
+#
 #   sudo -n -u hermes env HOME=/var/lib/hermes HERMES_HOME=/var/lib/hermes/.hermes \
-#     HERMES_MANAGED=true PATH=/run/current-system/sw/bin bash /tmp/verify-pools.sh
+#     HERMES_MANAGED=true PATH=/run/current-system/sw/bin bash /etc/pool-verify/verify-pools.sh
 #
 # Hygiene: no key is printed, none is passed in argv, none is written anywhere.
 # Only a key's byte length is read, and the NAME= prefix is compared in a

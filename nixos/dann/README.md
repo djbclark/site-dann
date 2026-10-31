@@ -47,13 +47,16 @@ shaped right, and a real completion comes back through that provider. It prints 
 only — no key, no key length beyond what the file itself declares.
 
 ```bash
-# copy it up, then run it as the hermes service user
-scp -i ~/.ssh/dann_vps_ed25519 -o IdentitiesOnly=yes nixos/dann/verify-pools.sh \
-  dann@dann.dclark.us:/tmp/verify-pools.sh
+# the host already has this exact script, installed from the repo at activation
 ssh -i ~/.ssh/dann_vps_ed25519 -o IdentitiesOnly=yes dann@dann.dclark.us \
   "sudo -n -u hermes env HOME=/var/lib/hermes HERMES_HOME=/var/lib/hermes/.hermes \
-   HERMES_MANAGED=true PATH=/run/current-system/sw/bin bash /tmp/verify-pools.sh"
+   HERMES_MANAGED=true PATH=/run/current-system/sw/bin bash /etc/pool-verify/verify-pools.sh"
 ```
+
+Run `/etc/pool-verify/verify-pools.sh`, not a copy you `scp` to `/tmp`: `environment.etc` installs
+this file there on every activation, so the copy you run is the copy the timer runs. (To run it
+somewhere else — a laptop — copy it, but then only the checks that need files on that machine
+mean anything.)
 
 Run as `dann` instead and the Hermes calls fail with `PermissionError` on `.env`; run as
 `hermes` and the `/run/secrets` branch is unavailable (that sudo rule is `dann`'s), so the

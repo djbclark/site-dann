@@ -49,9 +49,9 @@
   # one less thing to reason about at a privilege boundary.
   #
   # `sudo-main` is the shipping branch for the Linux/NixOS port (PR #7 merged 2026-10-29,
-  # N1/N2 fixes in PR #8). Repointed here from `linux-port`; the flake.lock still has no
-  # sudo-secretspec node, so a re-lock is required before this evaluates (operator/CI step —
-  # no nix on the Mac; `nix flake lock` on the VPS or `nixos-lock-update.yml`).
+  # N1/N2 fixes in PR #8). Locked and building since 64365f8: flake.lock's root inputs include
+  # sudo-secretspec, pinned to sudo-main rev 7ae32f8. Nothing here needs a re-lock by hand —
+  # the weekly nixos-lock-update workflow moves it, and it builds the result before promoting.
   inputs.sudo-secretspec = {
     url = "github:frdminc/sudo-secretspec/sudo-main";
     inputs.nixpkgs.follows = "nixpkgs";
