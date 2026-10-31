@@ -1,10 +1,21 @@
 # Secret values and local credentials. Declarations remain committed.
 .env
 *.env
+# .sops.yaml encrypts .env files under nixos/dann/secrets too; those are committed ciphertext,
+# so the only .env family that belongs in git lives there and nowhere else.
+!nixos/dann/secrets/*.env
 *.pem
 *.key
 *.crt
 id_*
+# The two plaintexts most likely to appear by accident next to a sops repo: an age identity
+# (age-keygen -o key.txt, the name configuration.nix documents) and a decrypted copy.
+key.txt
+keys.txt
+*.agekey
+*.age-key*
+*.dec.*
+*.decrypted*
 
 # Local caches and editor state.
 .DS_Store
@@ -13,6 +24,7 @@ __pycache__/
 .pytest_cache/
 graft/
 
-# Pool expectation files are private (exact key lengths) — they live in
-# site-private-dann, never here.
+# Pool expectation files (exact key lengths) live in site-private-dann, never here. They are
+# not a secret — a sops ciphertext publishes its plaintext length, so the lengths are already
+# derivable from nixos/dann/secrets/pools.yaml — but they are host-local settings.
 pool-expectations*
