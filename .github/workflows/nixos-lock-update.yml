@@ -5,7 +5,12 @@
 # thing that does. Update the lock, BUILD the whole `dann` system on the runner (that build is
 # the gate), commit the lock to master, and fast-forward deploy-dann to it when nothing else
 # under nixos/ is waiting there (a pending config change is never promoted for you). The host's
-# own 04:00 run then picks it up.
+# own 04:31 run then picks it up.
+#
+# The gate covers every promotion, not only this job's own bump. A lock committed to master by
+# hand (flake.nix still tells the operator to re-lock) is promoted too, and promotion now builds
+# whatever tree it would push: either the base master moved to under this run's commit, or
+# origin/master itself when the lock came from somewhere else.
 #
 # This bumps every input, not just nixpkgs: disko, sops-nix and hermes-agent too. That is safe
 # only because the runner builds the result first — a hermes-agent bump that does not evaluate
@@ -122,6 +127,7 @@ jobs:
               echo "old=$old"
               echo "new=$new"
               echo "others=$others"
+              echo "base=$(git rev-parse HEAD)"
             } >>"$GITHUB_OUTPUT"
             echo "nixpkgs $old -> $new; also moved: ${others:-nothing else}"
           fi
@@ -165,10 +171,66 @@ jobs:
           echo "::error::could not push the lock commit to master after 3 attempts."
           exit 1
 
+      - name: Rebuild when master moved under the commit
+        if: steps.update.outputs.changed == 'true'
+        run: |
+          set -euo pipefail
+          # The commit step rebases onto origin/master before pushing, so master may have gained
+          # commits after the gate built this tree. If the parent changed, the tree promotion
+          # would push was never built: build it now, before promotion.
+          git fetch --quiet origin master
+          built="${{ steps.update.outputs.base }}"
+          base=$(git rev-parse HEAD^)
+          head=$(git rev-parse HEAD)
+          if [ "$base" = "$built" ] && [ "$head" = "$(git rev-parse origin/master)" ]; then
+            echo "master did not move during the build; the gate above built the promoted tree."
+            exit 0
+          fi
+          echo "master moved: built on ${built:0:7}, promoting $(git rev-parse --short HEAD) over $(git rev-parse --short HEAD^)"
+          nix build --no-link --print-build-logs \
+            './nixos#nixosConfigurations.dann.config.system.build.toplevel'
+
+      - name: Would promotion move deploy-dann? (gate for a lock this run did not write)
+        id: gate
+        run: |
+          set -euo pipefail
+          git fetch --quiet origin master "$DEPLOY_BRANCH"
+          build=false
+          if git diff --quiet "origin/$DEPLOY_BRANCH" origin/master -- nixos; then
+            what="master and $DEPLOY_BRANCH agree on nixos/; nothing to promote"
+          else
+            pending=$(git diff --name-only "origin/$DEPLOY_BRANCH" origin/master -- nixos |
+              { grep -vx 'nixos/flake.lock' || true; } | paste -sd, -)
+            if [ -n "$pending" ]; then
+              what="promotion is blocked by unpromoted changes (${pending})"
+            elif ! git merge-base --is-ancestor "origin/$DEPLOY_BRANCH" origin/master; then
+              what="$DEPLOY_BRANCH is not an ancestor of master; promotion would diverge"
+            else
+              build=true
+              what="promotion would move only nixos/flake.lock, so origin/master must build first"
+            fi
+          fi
+          echo "build=$build" >>"$GITHUB_OUTPUT"
+          echo "$what"
+
+      - name: Build the tree the host will get (a lock this run did not write)
+        if: steps.update.outputs.changed != 'true' && steps.gate.outputs.build == 'true'
+        run: |
+          set -euo pipefail
+          # Promotion pushes origin/master, so build exactly that rather than this run's checkout:
+          # a lock committed by hand never passed the gate above, and the host switches to
+          # whatever deploy-dann points at.
+          git checkout --quiet --detach origin/master
+          echo "building $(git rev-parse --short HEAD)"
+          nix build --no-link --print-build-logs \
+            './nixos#nixosConfigurations.dann.config.system.build.toplevel'
+
       - name: Promote to deploy-dann
         id: promote
         run: |
           set -euo pipefail
+          # Reached only when every build above passed: the job fails before this step if the
+          # gate build failed, so nothing unbuilt is ever pushed to the branch the host builds.
           git fetch --quiet origin master "$DEPLOY_BRANCH"
           pending=""
           if git diff --quiet "origin/$DEPLOY_BRANCH" origin/master -- nixos; then
