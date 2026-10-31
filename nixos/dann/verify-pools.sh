@@ -10,7 +10,9 @@
 #     HERMES_MANAGED=true PATH=/run/current-system/sw/bin bash /tmp/verify-pools.sh
 #
 # Hygiene: no key is printed, none is passed in argv, none is written anywhere.
-# Only a key's byte length and the variable name before the first '=' are read.
+# Only a key's byte length is read, and the NAME= prefix is compared in a
+# stream: a file whose first line is not `NAME=value` yields no value byte at
+# all, because at most ${#name}+1 bytes are read and never captured.
 #
 # Expected lengths are deliberately NOT in this public repo. Supply them
 # privately as NAME:bytes lines (the byte size of the whole `NAME=value` line —
@@ -53,8 +55,15 @@ secret_report() {
 
     if $SUDO test -e "/run/secrets/$name" 2>/dev/null; then
       got=$($SUDO stat -c %s "/run/secrets/$name" 2>/dev/null)
-      # bytes up to the first '=' are the variable name: not a secret
-      prefix=$($SUDO head -c 200 "/run/secrets/$name" 2>/dev/null | awk -F= 'NR == 1 { print $1 }')
+      # Compare the NAME= prefix as a stream: no value byte is captured, so a
+      # file that is not a `NAME=value` line cannot leak into a variable, a
+      # note or stdout. Reading ${#name}+1 bytes of a proper line stops at '='.
+      if $SUDO head -c $(( ${#name} + 1 )) "/run/secrets/$name" 2>/dev/null \
+         | cmp -s - <(printf '%s=' "$name"); then
+        prefix=$name
+      else
+        prefix=""
+      fi
       src="/run/secrets"
     elif [ -n "${HERMES_HOME:-}" ] && [ -r "$HERMES_HOME/.env" ]; then
       # What the module's activation appended; length of the whole line.
@@ -71,7 +80,7 @@ secret_report() {
 
     case "$got" in *[!0-9]*) note="unreadable length '$got'" ;; esac
     if [ -z "$note" ] && [ "$prefix" != "$name" ]; then
-      note="line starts with '$prefix', not '$name'"
+      note="first line is not '$name=...'"
     fi
     if [ -z "$note" ] && [ "$got" -lt 48 ]; then
       note="suspiciously short ($got bytes)"
