@@ -24,10 +24,16 @@
 #   POOL_EXPECT=~/.config/dann/pool-expectations bash verify-pools.sh
 #
 # Exit: 0 everything passed, 1 something failed.
+#
+# POOL_VERIFY_NO_SUDO=1 skips the /run/secrets branch entirely instead of probing it. Set it
+# wherever this runs as a user with no sudo rule (the daily timer runs as `hermes`): each probe
+# is otherwise a denied sudo attempt in the auth journal, five a day, which reads like a real
+# denial and trains people to ignore the real ones. The .env branch carries the same lines.
 set -u
 export PATH="$PATH:/run/current-system/sw/bin"
 
 SUDO="sudo -n"
+if [ "${POOL_VERIFY_NO_SUDO:-0}" = 1 ]; then SUDO=""; fi
 EXPECT_FILE="${POOL_EXPECT:-}"
 fails=0
 checks=0
@@ -55,7 +61,7 @@ secret_report() {
     note=""
     checks=$((checks + 1))
 
-    if $SUDO test -e "/run/secrets/$name" 2>/dev/null; then
+    if [ -n "$SUDO" ] && $SUDO test -e "/run/secrets/$name" 2>/dev/null; then
       got=$($SUDO stat -c %s "/run/secrets/$name" 2>/dev/null)
       # Compare the NAME= prefix as a stream: no value byte is captured, so a
       # file that is not a `NAME=value` line cannot leak into a variable, a

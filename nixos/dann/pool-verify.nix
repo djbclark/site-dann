@@ -97,6 +97,9 @@ in
         "HERMES_HOME=/var/lib/hermes/.hermes"
         "HERMES_MANAGED=true"
         "PATH=/run/current-system/sw/bin"
+        # `hermes` has no sudo rule of its own, so probing /run/secrets would add five denied
+        # attempts to the auth journal per run. .env holds the same lines; see verify-pools.sh.
+        "POOL_VERIFY_NO_SUDO=1"
       ];
     };
   };
