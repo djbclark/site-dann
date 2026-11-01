@@ -79,7 +79,9 @@ in this repo does the same job for `dann` — weekly lock bump, `dann`'s topleve
 runner as the gate, commit to `master`, fast-forward `deploy-dann` when nothing else under
 `nixos/` is waiting, one `nixos-lock` issue plus a Telegram message on failure. It bumps every
 input (disko, sops-nix, hermes-agent too), which is safe only because the runner builds the
-result before anything is promoted.
+result before anything is promoted. That workflow gates only the runs it makes itself; a tree
+committed or promoted by hand is built by `.github/workflows/nixos-build.yml`, which fires on
+pull requests and on pushes to `master` and `deploy-dann` that touch `nixos/`.
 
 ## Constraint that does not change
 

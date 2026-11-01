@@ -43,6 +43,12 @@ when a later run finds nothing outstanding. It needs `TELEGRAM_BOT_TOKEN`,
 `TELEGRAM_CHAT_ID` and `TELEGRAM_THREAD_ID` as repository secrets — again after this repo moves
 to Dann's own account.
 
+That weekly run is not the only build gate: [`.github/workflows/nixos-build.yml`](.github/workflows/nixos-build.yml)
+builds `dann` on every pull request and every push to `master` or `deploy-dann` that touches
+`nixos/`, so a tree committed or promoted by hand is built too. It is read-only (it reports a
+red run, never promotes or opens an issue), and on `deploy-dann` it runs after the push, so it
+tells you the host will fail to build; it does not stop the push.
+
 ## Working in this repo
 
 `master` is the working branch; deployments read long-lived `deploy-*` branches promoted from
