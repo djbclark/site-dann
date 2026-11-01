@@ -24,8 +24,10 @@
     # The entity's own credentials and the sudo-secretspec privilege boundary (2026-10-29). Kept
     # in its own file because it is a whole subsystem: the sops secrets only it consumes, the
     # `services.sudo-secretspec` enable, and the import-from-derivation the imported module needs.
-    # It imports nothing and declares those itself; the module that defines the option is imported
-    # in nixos/flake.nix BEFORE this file.
+    # It imports nothing and declares those itself. The module that defines the option is not
+    # imported here: nixos/flake.nix supplies it (`sudo-secretspec.nixosModules.default`), and its
+    # default `package` comes from that same flake. List order is irrelevant to option visibility,
+    # since NixOS merges every module lazily.
     ./sudo-secretspec.nix
   ];
 
@@ -65,8 +67,9 @@
     defaultGateway = { address = "148.113.144.1"; interface = "ens3"; };
     defaultGateway6 = { address = "2607:5300:205:200::1"; interface = "ens3"; };
     nameservers = [ "9.9.9.9" "2620:fe::fe" ];
-    # The interface must be up with its address before sshd matters; systemd-networkd is the
-    # default with the settings above, and this keeps the ordering explicit.
+    # The interface address comes from the scripted backend (`networking.useNetworkd` is left at
+    # its default, false): on the live host `network-addresses-ens3.service` is active and
+    # systemd-networkd is inactive. That has nothing to do with the firewall line below.
     firewall.allowedTCPPorts = [ 22 ];
   };
 
