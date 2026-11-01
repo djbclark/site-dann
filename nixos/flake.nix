@@ -50,7 +50,7 @@
   #
   # `sudo-main` is the shipping branch for the Linux/NixOS port (PR #7 merged 2026-10-29,
   # N1/N2 fixes in PR #8). Locked and building since 64365f8: flake.lock's root inputs include
-  # sudo-secretspec, pinned to sudo-main rev 5c664a3 (0.21.1-sudo.3). Nothing here needs a re-lock by hand —
+  # sudo-secretspec, pinned to sudo-main rev eaf61ba (0.21.1-sudo.4, the v0.21.1-sudo.4 tag commit). Nothing here needs a re-lock by hand —
   # the weekly nixos-lock-update workflow moves it, and it builds the result before promoting.
   inputs.sudo-secretspec = {
     url = "github:frdminc/sudo-secretspec/sudo-main";
