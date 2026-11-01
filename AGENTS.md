@@ -43,5 +43,5 @@ An agent working here is a seat of the composite entity **Dann**:
 
 One host: `dann.dclark.us` (NixOS 26.05, `dann` with passwordless sudo, `hermes` service
 user). SSH is `ssh -i ~/.ssh/dann_vps_ed25519 -o IdentitiesOnly=yes dann@dann.dclark.us` only.
-Host facts and the five AI pools: [nixos/dann/README.md](nixos/dann/README.md) and
+Host facts and the four AI pools: [nixos/dann/README.md](nixos/dann/README.md) and
 [docs/pools.md](docs/pools.md).

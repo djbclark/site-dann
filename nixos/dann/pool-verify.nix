@@ -1,6 +1,6 @@
 # pool-verify — the daily proof that dann.dclark.us can still do agent work.
 #
-# The five gifted AI pools, the five secrets and the hermes gateway are the only things this host
+# The four gifted AI pools, the five secrets and the hermes gateway are the only things this host
 # exists for, and until 2026-10-28 nothing checked them between manual runs. This module makes
 # verify-pools.sh a daily systemd oneshot and keeps its last result on disk where another machine
 # can read it:
@@ -72,7 +72,7 @@ in
   };
 
   systemd.services.pool-verify = {
-    description = "Verify the five AI pools, their secrets and the Hermes gateway";
+    description = "Verify the four AI pools, their secrets and the Hermes gateway";
     # After the gateway exists (no point in racing its activation) and once the network is up:
     # every check is a real HTTPS completion.
     wants = [ "network-online.target" ];

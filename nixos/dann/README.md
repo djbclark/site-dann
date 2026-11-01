@@ -117,6 +117,16 @@ ssh and sends one Telegram notice per incident — unreachable, failed upgrade, 
 verification failed, verification stale (36 h), or failed units — and one on recovery. `fleet-watch
 dann` reads the state on demand.
 
+### Reading a FAIL line
+
+The verifier's own verdict appears in `journalctl -u pool-verify` and `/var/lib/pool-verify/last`, while detailed error output and `Fallback activated: … → …` lines appear in `agent.log` under `HERMES_HOME` (`/var/lib/hermes/.hermes/logs/agent.log`). An operator diagnosing a failure should distinguish three classes:
+
+1. **A dead credential** — the pool returns 401/403, or the secret is absent or empty. The key is wrong, expired or revoked; rotation is the fix (see below).
+2. **A quota wall** — the pool returns HTTP 429 (`GoUsageLimitError`, "Go usage limit exceeded", or "Insufficient account funds") for every model, because the wall is per account, not per model. The key is fine and rotation does not help; it is a spend-policy decision for whoever owns that subscription, clearing when the window resets.
+3. **A pool that did not answer** — the verifier prints `FAIL … answered, but hermes switched to a fallback pool during the call: <provider> did not serve it`. That means the call completed on another pool in the chain; the named provider is the one to investigate, usually by class 1 or 2.
+
+On 2026-11-01 pool 2 (`opencode-go-technoeuphora`) was in class 2: the account returned 429 on every model, and had done so in every daily run since 2026-10-30 05:44. djbclark's ruling was to leave the pool in place and let it go green when the window resets, so the daily run legitimately reports exactly one FAIL — that pool — and exits 1 until then. A FAIL naming a different pool is new information; this one is expected.
+
 ## Rotating a pool key
 
 1. Get the new key from whoever owns that pool (djbclark or the operator). It never enters a
