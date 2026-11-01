@@ -1,5 +1,6 @@
 {
   description = "Dann's NixOS hosts (dann.dclark.us)";
+  deliberately broken throwaway syntax error to prove the gate goes red
 
   # This flake owns exactly one host: `dann`. It was split out of djbclark's
   # site-djbclark/nixos flake on 2026-10-28, when dann.dclark.us became its own site
