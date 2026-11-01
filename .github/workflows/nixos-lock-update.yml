@@ -8,9 +8,11 @@
 # own 04:31 run then picks it up.
 #
 # The gate covers every promotion, not only this job's own bump. A lock committed to master by
-# hand (flake.nix still tells the operator to re-lock) is promoted too, and promotion now builds
+# hand (flake.nix still tells the operator to re-lock) is promoted too, and promotion builds
 # whatever tree it would push: either the base master moved to under this run's commit, or
-# origin/master itself when the lock came from somewhere else.
+# origin/master itself when the lock came from somewhere else. Each build records the commit it
+# built; promotion pushes exactly that commit, and only while it is still origin/master. If master
+# moved during the build, nothing is pushed: the run ends as `master-moved` and raises the alarm.
 #
 # This bumps every input, not just nixpkgs: disko, sops-nix and hermes-agent too. That is safe
 # only because the runner builds the result first — a hermes-agent bump that does not evaluate
@@ -172,23 +174,28 @@ jobs:
           exit 1
 
       - name: Rebuild when master moved under the commit
+        id: rebuild
         if: steps.update.outputs.changed == 'true'
+        env:
+          BUILT_BASE: ${{ steps.update.outputs.base }}
         run: |
           set -euo pipefail
           # The commit step rebases onto origin/master before pushing, so master may have gained
-          # commits after the gate built this tree. If the parent changed, the tree promotion
-          # would push was never built: build it now, before promotion.
+          # commits after the gate built this tree, and may gain more while this step runs. If the
+          # gate's tree is not origin/master, build origin/master itself, not the local HEAD.
           git fetch --quiet origin master
-          built="${{ steps.update.outputs.base }}"
           base=$(git rev-parse HEAD^)
           head=$(git rev-parse HEAD)
-          if [ "$base" = "$built" ] && [ "$head" = "$(git rev-parse origin/master)" ]; then
+          if [ "$base" = "$BUILT_BASE" ] && [ "$head" = "$(git rev-parse origin/master)" ]; then
             echo "master did not move during the build; the gate above built the promoted tree."
+            echo "sha=$head" >>"$GITHUB_OUTPUT"
             exit 0
           fi
-          echo "master moved: built on ${built:0:7}, promoting $(git rev-parse --short HEAD) over $(git rev-parse --short HEAD^)"
+          git checkout --quiet --detach origin/master
+          echo "master moved: gate built on ${BUILT_BASE:0:7}, rebuilding $(git rev-parse --short HEAD) (origin/master)"
           nix build --no-link --print-build-logs \
             './nixos#nixosConfigurations.dann.config.system.build.toplevel'
+          echo "sha=$(git rev-parse HEAD)" >>"$GITHUB_OUTPUT"
 
       - name: Would promotion move deploy-dann? (gate for a lock this run did not write)
         id: gate
@@ -214,6 +221,7 @@ jobs:
           echo "$what"
 
       - name: Build the tree the host will get (a lock this run did not write)
+        id: buildmaster
         if: steps.update.outputs.changed != 'true' && steps.gate.outputs.build == 'true'
         run: |
           set -euo pipefail
@@ -224,13 +232,17 @@ jobs:
           echo "building $(git rev-parse --short HEAD)"
           nix build --no-link --print-build-logs \
             './nixos#nixosConfigurations.dann.config.system.build.toplevel'
+          echo "sha=$(git rev-parse HEAD)" >>"$GITHUB_OUTPUT"
 
       - name: Promote to deploy-dann
         id: promote
+        env:
+          BUILT_SHA: ${{ steps.rebuild.outputs.sha || steps.buildmaster.outputs.sha }}
         run: |
           set -euo pipefail
-          # Reached only when every build above passed: the job fails before this step if the
-          # gate build failed, so nothing unbuilt is ever pushed to the branch the host builds.
+          # The build takes minutes, so master can move after it. Push the commit that was built,
+          # never whatever origin/master is now, and only while the two are still the same commit;
+          # otherwise report master-moved and push nothing (the host takes deploy-dann unattended).
           git fetch --quiet origin master "$DEPLOY_BRANCH"
           pending=""
           if git diff --quiet "origin/$DEPLOY_BRANCH" origin/master -- nixos; then
@@ -240,11 +252,13 @@ jobs:
               { grep -vx 'nixos/flake.lock' || true; } | paste -sd, -)
             if [ -n "$pending" ]; then
               state=blocked
-            elif git merge-base --is-ancestor "origin/$DEPLOY_BRANCH" origin/master; then
-              git push origin "origin/master:refs/heads/$DEPLOY_BRANCH"
+            elif ! git merge-base --is-ancestor "origin/$DEPLOY_BRANCH" origin/master; then
+              state=diverged
+            elif [ -n "$BUILT_SHA" ] && [ "$BUILT_SHA" = "$(git rev-parse origin/master)" ]; then
+              git push origin "$BUILT_SHA:refs/heads/$DEPLOY_BRANCH"
               state=promoted
             else
-              state=diverged
+              state=master-moved
             fi
           fi
           echo "state=$state" >>"$GITHUB_OUTPUT"
@@ -280,6 +294,12 @@ jobs:
             headline="NixOS changes on master are NOT promoted"
             detail="${DEPLOY_BRANCH} is not an ancestor of master (someone committed to it"
             detail="${detail} directly). Merge it into master, then run: ${deploy}. Run: ${run_url}"
+          elif [ "$PROMOTE_STATE" = master-moved ]; then
+            kind=master-moved
+            headline="NixOS changes on master are NOT promoted"
+            detail="master moved while the gate build ran, so the commit that was built is no longer"
+            detail="${detail} master and was not pushed to ${DEPLOY_BRANCH}. Re-run the workflow"
+            detail="${detail} (gh workflow run nixos-lock-update.yml); it builds the new master. Run: ${run_url}"
           else
             kind=ok
           fi
