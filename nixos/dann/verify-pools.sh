@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# verify-pools.sh — prove the five gifted AI pools on dann.dclark.us are live.
+# verify-pools.sh — prove the four gifted AI pools on dann.dclark.us are live.
 #
 # Run ON the host as the hermes service user. The gateway's .env is
 # 0600 hermes:hermes, so a `dann` CLI call dies with PermissionError; and
@@ -34,7 +34,7 @@
 #
 # POOL_VERIFY_NO_SUDO=1 skips the /run/secrets branch entirely instead of probing it. Set it
 # wherever this runs as a user with no sudo rule (the daily timer runs as `hermes`): each probe
-# is otherwise a denied sudo attempt in the auth journal, five a day, which reads like a real
+# is otherwise a denied sudo attempt in the auth journal, four a day, which reads like a real
 # denial and trains people to ignore the real ones. The .env branch carries the same lines.
 set -u
 export PATH="$PATH:/run/current-system/sw/bin"
@@ -47,11 +47,11 @@ checks=0
 
 # The run must perform exactly this many checks, or it fails: deleting a `pool` line, a secret
 # name or the sops probe below then turns the run red instead of leaving it quietly green. Checks:
-# 1 gateway unit + 1 sops probe + 5 secrets + 6 pools (5 named + the default chain) = 13, plus one
+# 1 gateway unit + 1 sops probe + 4 secrets + 5 pools (4 named + the default chain) = 11, plus one
 # more when POOL_EXPECT is set (the expect file itself). ADDING A POOL: add it to poolSecrets and
 # to the providers/fallback_providers in nixos/dann/hermes.nix, then here: the secret NAME in
 # `secret_report`'s list, a `pool` line under "=== pools", and bump this number.
-EXPECTED_BASE_CHECKS=13
+EXPECTED_BASE_CHECKS=11
 
 # An expect file that was asked for (POOL_EXPECT set) but cannot be used is a failure, never "no
 # expectations": an unreadable or empty file would otherwise turn the length check off silently.
@@ -71,14 +71,13 @@ expected_bytes() {
 # Report one secret: present? right name prefix? right length? Never the value.
 secret_report() {
   local name want got prefix src note
-  # The same five names as `poolSecrets` in nixos/dann/hermes.nix (the source of truth); see
+  # The same four names as `poolSecrets` in nixos/dann/hermes.nix (the source of truth); see
   # EXPECTED_BASE_CHECKS above for what to change together.
   for name in \
     OPENCODE_GO_API_KEY_DJBCLARK \
     OPENCODE_GO_API_KEY_TECHNOEUPHORA \
     CLINE_API_KEY \
-    CLINE_PASS_KEY_2_TE \
-    AWS_BEARER_TOKEN_BEDROCK
+    CLINE_PASS_KEY_2_TE
   do
     want=$(expected_bytes "$name")
     got=""
@@ -269,7 +268,6 @@ pool go-djbc          opencode-go-djbc         deepseek-v4.1-flash
 pool go-technoeuphora opencode-go-technoeuphora deepseek-v4.1-flash
 pool cline-djbclark   cline-djbclark           cline2-pass/deepseek-v4-flash
 pool cline-techno     cline-technoeuphora      cline2-pass/deepseek-v4-flash
-pool bedrock-scout    bedrock                  us.meta.llama4-scout-17b-instruct-v1:0
 pool default-chain    ""                       ""
 
 if [ "$checks" -ne "$expected_checks" ]; then

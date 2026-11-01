@@ -1,6 +1,6 @@
 # Pool → provider → model map
 
-Five AI pools were gifted to the Dann entity on 2026-10-27/28 and wired onto
+Four AI pools were gifted to the Dann entity on 2026-10-27/28 and wired onto
 `dann.dclark.us` (Hermes, declarative NixOS module). Each is an independent consumer: the
 **Mac-side uses of the same keys stay in place** — the VPS copy is an additional consumer, not
 a replacement (djbclark, 2026-10-28, on signing off the Mac-removal list as *zero*).
@@ -11,7 +11,8 @@ a replacement (djbclark, 2026-10-28, on signing off the Mac-removal list as *zer
 | 2 | `opencode-go-technoeuphora`   | `OPENCODE_GO_API_KEY_TECHNOEUPHORA`  | opencode-go, techno-euphora | same policy                              |
 | 3 | `cline-djbclark`              | `CLINE_API_KEY`                      | clinepass, djbclark    | `cline2-pass/*`                               |
 | 4 | `cline-technoeuphora`         | `CLINE_PASS_KEY_2_TE`                | clinepass, techno-euphora | `cline2-pass/*`                            |
-| 5 | `bedrock` (Hermes built-in)   | `AWS_BEARER_TOKEN_BEDROCK`           | AWS Bedrock            | `us.meta.llama4-*`, region mirrored in config |
+
+The `bedrock` pool (`AWS_BEARER_TOKEN_BEDROCK`) was dropped 2026-11-01 on djbclark's instruction: its token returned HTTP 403 from Bedrock, and the daily `verify-pools.sh` PASS for it had only been the default fallback chain answering. Its ciphertext stays in `nixos/dann/secrets/pools.yaml` for a future rotation. The Mac's own use of that key (`goose-scout`, `acp-run`) is not changed by this and is djbclark's to manage.
 
 Provider names are deliberately prefixed (`opencode-go-…`, `cline-…`) so the model id routes
 through the right family without extra config. The opencode-go entries follow
@@ -23,9 +24,8 @@ through the right family without extra config. The opencode-go entries follow
 | -------------------------- | ------------------------------------------------------------------ |
 | `CLINE_API_KEY`            | `litellm-local` (launchd job, `CLINEPASS_API_KEY`)                  |
 | `CLINE_PASS_KEY_2_TE`      | `cline2`: fallback #1, compression, MoA (`~/.hermes/config.yaml`)  |
-| `AWS_BEARER_TOKEN_BEDROCK` | `goose-scout`, `acp-run`                                            |
 
-## Not one of the five
+## Not one of the four
 
 `OPENCODE_GO_API_KEY` (unprefixed) is a separate credential that stays with djbclark for its
 own retirement; it is present in djbclark's `~/.hermes/.env` and must not be touched from

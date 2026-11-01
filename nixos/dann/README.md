@@ -1,7 +1,7 @@
 # dann.dclark.us — the host
 
 A NixOS VPS. One Hermes agent installation (`hermes-agent`, declarative
-`nixosModules.default` from the `hermes-agent` flake) serving five gifted AI pools, each with
+`nixosModules.default` from the `hermes-agent` flake) serving four gifted AI pools, each with
 its own provider entry and its own sops-managed credential.
 
 | Item          | Value                                                                                  |
@@ -17,7 +17,7 @@ Config lives in this repo, `nixos/dann/`; this file and the host's `system.autoU
 URL are the two places the host is wired to (see
 [../../docs/migration-from-site-djbclark.md](../../docs/migration-from-site-djbclark.md)).
 
-## The five pools
+## The four pools
 
 | Provider (Hermes entry)      | Pool                    | Model used for verification                        |
 | ---------------------------- | ----------------------- | -------------------------------------------------- |
@@ -25,7 +25,11 @@ URL are the two places the host is wired to (see
 | `opencode-go-technoeuphora`  | opencode-go, techno-euphora's | `deepseek-v4.1-flash`                         |
 | `cline-djbclark`             | clinepass, djbclark's   | `cline2-pass/deepseek-v4-flash`                    |
 | `cline-technoeuphora`        | clinepass, techno-euphora's | `cline2-pass/deepseek-v4-flash`                |
-| `bedrock` (built-in)         | AWS Bedrock             | `us.meta.llama4-scout-17b-instruct-v1:0`            |
+
+The `bedrock` pool (AWS Bedrock, `us.meta.llama4-scout-17b-instruct-v1:0`) was dropped 2026-11-01
+on djbclark's instruction: its token returned HTTP 403, and its daily PASS had only been the
+default fallback chain answering. Its ciphertext stays in `secrets/pools.yaml` for a future
+rotation. See [`docs/pools.md`](../../docs/pools.md).
 
 Facts that are easy to get wrong again:
 
@@ -33,8 +37,8 @@ Facts that are easy to get wrong again:
    `inputs.self.packages.<system>.default`, built against hermes's own nixpkgs pin; following
    the host's 26.05 substitutes an older Python and `nix/pythonLock.nix` throws.
 2. **No `extraDependencyGroups`.** `packages.default` is already the `full` package and
-   carries `bedrock` (boto3); naming the group swaps a cached package for a narrower uncached
-   one.
+   carries every dependency group (boto3 included); naming a group swaps a cached package for a
+   narrower uncached one.
 3. **No `transport` / `api_mode` on the opencode-go entries.** Setting either pins the entry
    to one wire surface and the models on the other surface 503.
 4. **Cline needs `max_tokens` ≥ 256**, and a `/models` 200 does **not** verify an
@@ -62,7 +66,7 @@ Run as `dann` instead and the Hermes calls fail with `PermissionError` on `.env`
 `hermes` and the `/run/secrets` branch is unavailable (that sudo rule is `dann`'s), so the
 secret check falls back to `$HERMES_HOME/.env`, which the module fills with the same lines.
 Set `POOL_VERIFY_NO_SUDO=1` when running as a user with no sudo rule — the daily timer does — so
-the harness skips the `/run/secrets` branch instead of spending five denied sudo attempts a run
+the harness skips the `/run/secrets` branch instead of spending four denied sudo attempts a run
 in the auth journal.
 
 Exit status: `0` all checks pass, `1` something failed (each failing line says what).
@@ -129,17 +133,17 @@ dann` reads the state on demand.
    `CLINE_PASS_KEY_2_TE` → techno-euphora's.
 6. Only after the new key passes: retire the old one with its owner. **The Mac-side uses of
    the same keys stay** (`CLINE_API_KEY` → litellm-local, `CLINE_PASS_KEY_2_TE` → cline2:
-   fallback #1, compression, MoA, `AWS_BEARER_TOKEN_BEDROCK` → goose-scout, acp-run): the VPS
+   fallback #1, compression, MoA): the VPS
    copy is an additional consumer, not a replacement (djbclark, 2026-10-28: zero Mac removal).
 
-`OPENCODE_GO_API_KEY` (unprefixed) is **not** one of the five pools; it belongs to djbclark
+`OPENCODE_GO_API_KEY` (unprefixed) is **not** one of the four pools; it belongs to djbclark
 and must not be touched from here.
 
 ## Dann's own credentials (sudo-secretspec)
 
 The host also holds **Dann's own** credentials, under the `sudo-secretspec` privilege boundary
 ([`sudo-secretspec.nix`](sudo-secretspec.nix) + [`secretspec-manifest.toml`](secretspec-manifest.toml)).
-This is a *separate* secret family from the five pools above: those flow declaratively through
+This is a *separate* secret family from the four pools above: those flow declaratively through
 sops → `environmentFiles` → hermes `.env`, and this one is what the entity itself reads and
 mutates at runtime.
 
