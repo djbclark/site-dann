@@ -1,0 +1,118 @@
+# Build the `dann` NixOS system whenever the tree under nixos/ changes, and fail if it does not.
+#
+# Why this file exists. The host (dann.dclark.us) builds github:djbclark/site-dann/deploy-dann
+# at 04:00 and switches to whatever it finds there, with no gate of its own. The only other
+# workflow that builds the system, nixos-lock-update.yml, runs on a weekly cron and on manual
+# dispatch, so its gate covers a promotion only when that workflow happens to run. A commit
+# pushed to master and fast-forwarded to deploy-dann by hand (b398a38, 2026-11-01) reached the
+# branch the host builds without anyone having built it. This workflow is the same build fired
+# by the events instead.
+#
+# What triggers it, and what each trigger is for:
+#   push to deploy-dann (nixos/**)  THE LOAD-BEARING ONE. That branch is what the host builds,
+#                                   so this is the one run that says whether the tree the host
+#                                   is about to take builds, whoever pushed it and however.
+#   push to master (nixos/**)       The same question one step earlier, for a lock or config
+#                                   change committed by hand, before anyone promotes it.
+#   pull_request (nixos/**)         Before merge. GitHub checks out the PR merged into its base
+#                                   (refs/pull/N/merge), so this builds what master would become.
+#   workflow_dispatch               An escape hatch: run it by hand on any branch.
+# This file is in the paths too, so a change to the gate is itself tested.
+#
+# What it does NOT do, and where its limits are:
+#   * It is read-only. It never pushes, comments, opens an issue, or touches master or
+#     deploy-dann. Promotion is the exclusive business of nixos-lock-update.yml; this file only
+#     reports. That is why it does not fix, revert or alarm beyond a red run: no issue, no
+#     Telegram message, only GitHub's own failed-run notification.
+#   * It cannot BLOCK a push. On deploy-dann it runs after the branch has moved, so a red run
+#     means "the host will fail to build this at 04:00 unless it is fixed or the branch is put
+#     back", not "the push was refused". Refusing it needs branch protection on deploy-dann
+#     (required status check), which is a repository setting and is not made here.
+#   * It builds the toplevel only (the same target as nixos-lock-update.yml). It does not boot
+#     the system, run the module tests or switch anything, so a tree that builds and then fails
+#     at activation, or a secret the host cannot decrypt, is outside it.
+#   * The path filter looks at the files changed by the push or PR. A change outside nixos/ is
+#     not built (nothing under nixos/ reads a file outside it), and GitHub runs a push workflow
+#     regardless when it cannot compute the diff, so it may build more often than the filter
+#     suggests, never less.
+#
+# Duplicate work: accepted, deliberately, and in practice it does not arise. The lock workflow
+# builds the tree before it pushes the lock commit, and the pushes it makes use the repository's
+# GITHUB_TOKEN, which GitHub does not let start other workflow runs, so that bot commit never
+# triggers this file on master or on deploy-dann. There is no `if:` on the actor or on a
+# lock-only diff: a gate that can be talked out of running is worse than one that runs twice,
+# and if the bot's push ever did start a run (a PAT instead of GITHUB_TOKEN), the second build
+# costs free minutes on a public repo and nothing else.
+#
+# Concurrency: one group per workflow and ref, and cancel-in-progress is ON. A newer push to
+# the same ref supersedes an older one, and for deploy-dann the newest commit is the one the
+# host will take, so a build of the older commit is wasted. A cancelled run is not red; the run
+# for the newer commit, which replaces it, is the verdict. Different refs (each PR, master,
+# deploy-dann) never cancel each other. A manual dispatch on a ref that has a run in progress
+# cancels it too.
+#
+# Cost and bounds: public repo, GitHub-hosted Linux runners, so no minutes are billed. No cache:
+# a cold full build is the honest answer to "does this tree build", and the runs of
+# nixos-lock-update.yml suggest it takes about ten minutes. timeout-minutes is 60, well above
+# that and below the 90 the lock workflow allows for its update, build and promotion together.
+# No secrets: the build needs none (the sops files stay ciphertext in the store), and the job
+# gets contents: read only.
+
+name: NixOS build
+
+"on":
+  pull_request:
+    paths:
+      - "nixos/**"
+      - ".github/workflows/nixos-build.yml"
+  push:
+    branches:
+      - master
+      - deploy-dann
+    paths:
+      - "nixos/**"
+      - ".github/workflows/nixos-build.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions: {}
+
+jobs:
+  build:
+    name: dann system builds
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: read
+    steps:
+      - name: Check out
+        uses: actions/checkout@v7
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@v31
+        with:
+          extra_nix_config: |
+            experimental-features = nix-command flakes
+            access-tokens = github.com=${{ github.token }}
+            # The sudo-secretspec module derives its sudoers policy from the broker binary via
+            # import-from-derivation (see nixos/dann/sudo-secretspec.nix), so the gate build
+            # here needs the same allow the host sets in nix.settings.
+            allow-import-from-derivation = true
+
+      - name: Build dann (the gate)
+        run: |
+          set -euo pipefail
+          echo "building $(git rev-parse --short HEAD) for ${GITHUB_EVENT_NAME} on ${GITHUB_REF}"
+          if ! nix build --no-link --print-build-logs \
+            './nixos#nixosConfigurations.dann.config.system.build.toplevel'; then
+            if [ "${GITHUB_REF}" = "refs/heads/deploy-dann" ]; then
+              echo "::error file=nixos/flake.nix::dann does NOT build on deploy-dann: the host will fail to build this at its next nixos-upgrade. Fix it or put the branch back."
+            else
+              echo "::error file=nixos/flake.nix::dann does NOT build; do not promote this tree to deploy-dann."
+            fi
+            exit 1
+          fi
+          echo "dann builds."
