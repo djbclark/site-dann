@@ -34,8 +34,14 @@
   # One encrypted file for the whole group, next to the one consumer (this module), exactly the
   # pattern hermes.nix uses for pools.yaml. The three keys are encrypted with real values and the
   # module builds on the host (live since 2026-10-28). `validateSopsFiles = true`
-  # (configuration.nix) is the guard that keeps it that way: a placeholder or missing ciphertext
-  # fails evaluation instead of deploying a credential the broker cannot read.
+  # (configuration.nix) only checks that each declared key EXISTS in the encrypted file: sops-nix
+  # runs sops-install-secrets with `-check-mode=sopsfile`, which reads and parses the file and
+  # looks the key up, and never decrypts. So a missing key or a missing/unparseable file fails the
+  # build, but a placeholder string stored under the right key evaluates clean and is deployed, and
+  # so is a file not encrypted to the host's age recipient (activation then cannot decrypt it).
+  # Neither is caught here. The recipient check belongs in .github/workflows/secrets-encrypted.yml
+  # (being extended separately; do not read it as complete: a valid recipient with a broken MAC
+  # would still get through).
   sops.secrets = lib.genAttrs [
     "GITHUB_TOKEN"
     "GMAIL_OAUTH_CLIENT_ID"
@@ -49,9 +55,9 @@
 
   # ── The privilege boundary ────────────────────────────────────────────────────────────────
   # The module is `sudo-secretspec.nixosModules.default` from the flake input (wired in
-  # nixos/flake.nix). operator/servceUser/serviceGroup/vault/profile take the module defaults
-  # (operator "dann", vault /var/lib/sudo-secretspec, profile "default"); only the declarations
-  # template is supplied here.
+  # nixos/flake.nix). serviceUser/serviceGroup/vault/profile take the module defaults
+  # ("sudo-secretspec" for both service names, /var/lib/sudo-secretspec, "default"). Set here:
+  # `operator` (the module has no default for it) and the declarations template.
   services.sudo-secretspec = {
     enable = true;
     operator = "dann";

@@ -5,8 +5,11 @@
 # Plan and per-pool verification: keeper-8a2199e643f6, correction keeper-888dbe4481fd.
 #
 # WHY THE CREDENTIALS LIVE IN /run/secrets AND NOT HERE: this repo is public and the Nix store is
-# world-readable. The five API keys come from sops (`nixos/dann/secrets/pools.yaml`, age recipient
-# = the host's own key only) and reach Hermes as *runtime* paths in `environmentFiles`, which the
+# world-readable. The five API keys come from sops (`nixos/dann/secrets/pools.yaml`, encrypted to
+# two age recipients per `.sops.yaml`: the host's own key, age1kpu8804m…, and djbclark's
+# break-glass key, age168ewnmnc…, added in af2193f so the file can be decrypted without the host;
+# its private half lives in a vault off the host) and reach Hermes as *runtime* paths in
+# `environmentFiles`, which the
 # module's activation appends to $HERMES_HOME/.env. Nothing secret reaches the store.
 #
 # WHY EACH SECRET FILE IS A `NAME=value` LINE RATHER THAN A BARE VALUE: `environmentFiles` wants
@@ -90,10 +93,13 @@ in
     mode = "0400";
   });
 
-  # `dann` must be in the service group, and this is NOT cosmetic. `addToSystemPackages` exports
-  # HERMES_HOME system-wide, but the module makes that tree hermes:hermes 2770 and config.yaml
-  # 0660 (`.env` 0640) — so without membership the CLI running as `dann` cannot read the config it
-  # has been pointed at, which is exactly how each pool gets verified. The module only adds this
+  # `dann` is in the service group so the CLI running as `dann` can reach the tree it has been
+  # pointed at. `addToSystemPackages` exports HERMES_HOME system-wide, and the module makes that
+  # tree hermes:hermes 2770 and config.yaml 0660 (measured live: config.yaml 0660 root:hermes), so
+  # without membership `dann` cannot enter or read it. Membership does NOT reach `.env`: the module
+  # installs it 0640, but it is 0600 hermes:hermes on the live host (measured 2026-11-01; the
+  # mechanism that tightens it was not established), so a `dann` CLI call that loads it is refused
+  # (AGENTS.md rule 3) and pool checks run as the `hermes` user instead. The module only adds this
   # membership itself in CONTAINER mode (nixosModules.nix:383), so native mode has to say it.
   users.users.dann.extraGroups = [ config.services.hermes-agent.group ];
 
@@ -102,7 +108,8 @@ in
 
     # Puts `hermes` on the system PATH with HERMES_HOME pointing at the gateway's state dir, so a
     # shell session and the service share config, sessions and skills instead of splitting into two
-    # installations. This is also how the per-pool verification runs (as `dann`, no separate home).
+    # installations. The per-pool verification does not use this from `dann`: pool-verify.service
+    # runs as `hermes` (pool-verify.nix), the user that can read `.env`.
     addToSystemPackages = true;
 
     # NO `extraDependencyGroups`. It would look like the way to get boto3 for Bedrock, but it
