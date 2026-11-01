@@ -1,11 +1,11 @@
-# The entity's five gifted AI pools, served from the entity's own host.
+# The entity's four gifted AI pools, served from the entity's own host.
 #
 # Green light: dann-fa83e3d72734 (lead, 2026-10-27) — Option A, the declarative NixOS module
 # (`nixosModules.default` from github:djbclark/hermes-agent), never the `curl | bash` installer.
 # Plan and per-pool verification: keeper-8a2199e643f6, correction keeper-888dbe4481fd.
 #
 # WHY THE CREDENTIALS LIVE IN /run/secrets AND NOT HERE: this repo is public and the Nix store is
-# world-readable. The five API keys come from sops (`nixos/dann/secrets/pools.yaml`, encrypted to
+# world-readable. The four API keys come from sops (`nixos/dann/secrets/pools.yaml`, encrypted to
 # two age recipients per `.sops.yaml`: the host's own key, age1kpu8804m…, and djbclark's
 # break-glass key, age168ewnmnc…, added in af2193f so the file can be decrypted without the host;
 # its private half lives in a vault off the host) and reach Hermes as *runtime* paths in
@@ -77,13 +77,12 @@ let
     "OPENCODE_GO_API_KEY_TECHNOEUPHORA"
     "CLINE_API_KEY"
     "CLINE_PASS_KEY_2_TE"
-    "AWS_BEARER_TOKEN_BEDROCK"
   ];
 in
 {
   # Declared HERE, next to the one consumer, rather than in configuration.nix: the rule in that
   # file's sops comment is that a secret is added only when a service on this host consumes it, and
-  # this module is that service. All five live in one encrypted file so rotation is one `sops` edit.
+  # this module is that service. All four live in one encrypted file so rotation is one `sops` edit.
   # root-owned 0400 is enough: only the module's system.activationScripts reads them, as root, to
   # write $HERMES_HOME/.env once per activation. The service itself reads .env, not these files.
   sops.secrets = lib.genAttrs poolSecrets (_: {
@@ -112,22 +111,16 @@ in
     # runs as `hermes` (pool-verify.nix), the user that can read `.env`.
     addToSystemPackages = true;
 
-    # NO `extraDependencyGroups`. It would look like the way to get boto3 for Bedrock, but it
-    # makes things worse: the option overrides the package (moduleCommon.nix:679) to a variant
-    # containing ONLY the named groups, and `packages.default` here is `full`, which already
-    # carries bedrock — and fifteen other groups — from uv.lock (boto3 1.42.89, verified). So
-    # naming bedrock would swap a cached package for an uncached, narrower one. Let the default
-    # stand.
+    # NO `extraDependencyGroups`: the option overrides the package (moduleCommon.nix:679) to a
+    # variant containing ONLY the named groups, and `packages.default` here is `full`, which
+    # already carries every group (boto3 included) from uv.lock. Naming one would swap a cached
+    # package for an uncached, narrower one. Let the default stand.
 
     environmentFiles = map (name: config.sops.secrets."${name}".path) poolSecrets;
 
-    # Not secret, so it does not belong in sops. `agent/bedrock_adapter.py:385` reads
-    # AWS_REGION → AWS_DEFAULT_REGION → botocore → us-east-1; this pins the gift's region.
-    environment.AWS_REGION = "us-east-1";
-
     settings = {
-      # Routine default, per go-model-policy.json. Advisory work belongs on the clinepass or
-      # Bedrock entries until real gating exists.
+      # Routine default, per go-model-policy.json. Advisory work belongs on the clinepass
+      # entries until real gating exists.
       model = {
         provider = "opencode-go-djbc";
         default = "deepseek-v4.1-flash";
@@ -198,15 +191,15 @@ in
           models = clineModels;
         };
 
-        # ── Pool 5 (Bedrock) is a BUILT-IN provider: no entry here ─────────────────────
-        # `bedrock` needs no `providers` block — it is registered in hermes_cli/auth.py:242, reads
-        # AWS_BEARER_TOKEN_BEDROCK from the env file, and its region comes from AWS_REGION above
-        # (+ the `bedrock.region` mirror the auth gate checks). Adding a fake block would shadow it.
+        # A fifth pool, AWS Bedrock (the built-in `bedrock` provider, `us.meta.llama4-scout-17b-
+        # instruct-v1:0`), was DROPPED 2026-11-01 on djbclark's instruction: its token
+        # (AWS_BEARER_TOKEN_BEDROCK) returned HTTP 403 "Authentication failed" from
+        # bedrock-runtime.us-east-1, and the daily verify had been passing only because the default
+        # fallback chain answered. Its ciphertext entry is deliberately LEFT in secrets/pools.yaml:
+        # that file can only be edited where an age recipient's private key lives (the host), so
+        # removing the key is a separate `sops` edit for whenever someone wants it. An undeclared
+        # extra key in a sops file is inert.
       };
-
-      # Mirrors AWS_REGION for the auth gate at hermes_cli/auth.py:1332, which decides "is bedrock
-      # configured?" from config.yaml rather than the environment.
-      bedrock.region = "us-east-1";
 
       # The host is not a chat endpoint: no messaging platform is configured, so the gateway starts
       # and idles, and work arrives through the CLI. Left at defaults deliberately.

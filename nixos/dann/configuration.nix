@@ -200,6 +200,8 @@
     # real credential to fail. An earlier comment said to remove it once a real secret had been
     # through the same path; on reflection that would delete the only canary and make a future
     # failure invisible, so it stays.
+    # The daily `pool-verify` run now looks at it: nixos/dann/verify-pools.sh asserts the file
+    # exists and is non-empty, so a break fails that run rather than waiting to be noticed.
     secrets."sops_probe" = {
       owner = "dann";
       group = "users";
