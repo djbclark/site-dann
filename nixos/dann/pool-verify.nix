@@ -30,15 +30,17 @@ let
   # including on failure (a bare oneshot leaves the caller to guess).
   runner = pkgs.writeShellScript "pool-verify-run" ''
     set -u
-    report="$(mktemp)"
+    report="$(mktemp)" || { echo "pool-verify: cannot create a temp file" >&2; exit 2; }
     trap 'rm -f "$report"' EXIT
 
     # Optional expectations (exact NAME=value line lengths), read from the host rather than from
     # this public repo: they are a measurement of THIS host, not a shared artifact. They are not
     # a secret - a sops ciphertext is as long as its plaintext, so nixos/dann/secrets/pools.yaml
     # already publishes these numbers to anyone who base64-decodes it. Drop the file in place and
-    # the harness's length check starts working with no rebuild.
-    [ -r /etc/pool-verify/expect ] && export POOL_EXPECT=/etc/pool-verify/expect
+    # the harness's length check starts working with no rebuild. If the file EXISTS the harness is
+    # told about it even when it is unreadable, and then fails the run: "present but unusable"
+    # must not look like "not supplied".
+    if [ -e /etc/pool-verify/expect ]; then export POOL_EXPECT=/etc/pool-verify/expect; fi
 
     rc=0
     ${pkgs.bash}/bin/bash ${harnessOut} >"$report" 2>&1 || rc=$?
@@ -46,14 +48,19 @@ let
     # The journal gets the whole report.
     cat "$report"
 
-    # And so does disk, atomically, with a timestamp a human or a probe can read.
+    # And so does disk, atomically, with a timestamp a human or a probe can read. Every write is
+    # chained: if the result cannot be recorded (disk full, wrong owner) the unit must say so
+    # rather than exit with the harness's status while last.exit keeps yesterday's value. 2, not
+    # 1: SuccessExitStatus below treats 1 as "verification failed, unit ran fine", and a lost
+    # record is a unit fault that must stay red. The message goes to the journal after the report.
     {
       printf '=== pool-verify %s exit=%s\n' "$(date -u '+%Y-%m-%dT%H:%M:%SZ')" "$rc"
       cat "$report"
-    } > "${stateDir}/last.new"
-    mv -f "${stateDir}/last.new" "${stateDir}/last"
-    printf '%s\n' "$rc" > "${stateDir}/last.exit.new"
-    mv -f "${stateDir}/last.exit.new" "${stateDir}/last.exit"
+    } > "${stateDir}/last.new" \
+      && mv -f "${stateDir}/last.new" "${stateDir}/last" \
+      && printf '%s\n' "$rc" > "${stateDir}/last.exit.new" \
+      && mv -f "${stateDir}/last.exit.new" "${stateDir}/last.exit" \
+      || { echo "pool-verify: cannot record result in ${stateDir} (harness exit was $rc)" >&2; rc=2; }
 
     exit "$rc"
   '';
@@ -73,9 +80,10 @@ in
 
     serviceConfig = {
       Type = "oneshot";
-      # The gateway's .env is hermes:hermes, so the service user is `hermes` and no sudo rule is
-      # involved anywhere. `dann` would work too (it is in the hermes group) but this is the
-      # identity the harness was verified under.
+      # The module installs the gateway's .env 0640 hermes:hermes, but Hermes tightens it to 0600
+      # (measured on the host 2026-11-01: 0600 hermes:hermes), so only the `hermes` user reads it
+      # and `dann` is refused with PermissionError. The service user is therefore `hermes`, and no
+      # sudo rule is involved anywhere.
       User = "hermes";
       Group = config.services.hermes-agent.group;
       ExecStart = runner;
@@ -87,8 +95,14 @@ in
       # Six real completions with a 240 s cap each; 30 min is generous and still bounded.
       TimeoutStartSec = "1800";
       # A failed verification is information, not a service fault: it must not be restarted in a
-      # loop (that would burn pool quota) and it must not mark the unit as needing rescue.
+      # loop (that would burn pool quota) and it must not mark the unit `failed`. The harness exits
+      # 1 for "a check failed"; SuccessExitStatus makes that a green unit, so `systemctl --failed`
+      # stays empty and fleet-watch's dann check (which tests failed units BEFORE last.exit) gets
+      # to its own `verify-failed` page, with the report path, instead of the generic
+      # "N failed systemd unit(s)". Any other status (2 = the runner could not record its result,
+      # a crash, a timeout) still fails the unit; the verdict itself is in last.exit.
       Restart = "no";
+      SuccessExitStatus = "1";
       # Keep the last result readable by dann (via the hermes group) even if the pool keys are
       # what broke — and not by anyone else: no world bits and no group write.
       UMask = "0027";
@@ -108,8 +122,10 @@ in
     description = "Daily verification of dann's AI pools and gateway";
     wantedBy = [ "timers.target" ];
     timerConfig = {
-      # 05:20 UTC, after the 04:00+45min unattended upgrade window, so a verification never races
-      # an activation that is restarting the gateway underneath it.
+      # 05:20 UTC (plus up to 30 min of RandomizedDelaySec), set AFTER the 04:00+45min unattended
+      # upgrade window so it normally starts once the upgrade has finished. Nothing orders the two
+      # units: a long activation (the review measured 38 minutes on 2026-10-29) can still overlap a
+      # verification, and then a gateway restart under it shows up as a failed check.
       OnCalendar = "*-*-* 05:20:00";
       RandomizedDelaySec = "30min";
       # A host that was off for the slot still gets today's answer shortly after it comes up.
