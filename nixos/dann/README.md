@@ -111,6 +111,18 @@ it holds.
 The service writes both files as `hermes:hermes` with mode `0640` in a `0750` directory, so
 `dann` reads them through the `hermes` group and other local users cannot.
 
+**What the daily run proves about secrets.** Besides the four pool credentials it checks, in its
+`=== sops` section, that every sops secret this host declares (`sops_probe`, the four
+`poolSecrets` in [`hermes.nix`](hermes.nix) and the three in
+[`sudo-secretspec.nix`](sudo-secretspec.nix)) exists under `/run/secrets` and is non-empty. That is
+evidence the last activation decrypted them, nothing more: it reads no byte, and it cannot prove a
+MAC, the sealing key, or the content, nor that a *future* commit will decrypt. Only the next
+activation proves that, and a failed activation is what pages. The static CI check
+(`secrets-encrypted.yml`) sees shape and recipients only. The division is tabulated in
+[`docs/pools.md`](../../docs/pools.md#what-proves-a-secret-is-real). The name list lives once in
+`verify-pools.sh` (`sops_report`), because the `.nix` modules are not installed on the host: adding
+a secret means touching both.
+
 **The host does not page anybody.** It has no messaging platform by design, so alerting lives off
 the host: djbclark's `fleet-watch dann` (on his Mac, every 5 minutes) reads these two files over
 ssh and sends one Telegram notice per incident — unreachable, failed upgrade, gateway down,

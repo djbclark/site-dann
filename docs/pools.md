@@ -30,3 +30,14 @@ through the right family without extra config. The opencode-go entries follow
 `OPENCODE_GO_API_KEY` (unprefixed) is a separate credential that stays with djbclark for its
 own retirement; it is present in djbclark's `~/.hermes/.env` and must not be touched from
 this site.
+
+## What proves a secret is real
+
+| Layer | Proves | Cannot see |
+| ----- | ------ | ---------- |
+| Static, CI (`secrets-encrypted.yml`) | Committed files have the shape of sops ciphertext for this host: `ENC[…]` values, the `sops:` metadata, the `recipient:` line. | Decryption. There is no private key in CI: a stale MAC, or ciphertext sealed to a different key than the `recipient:` line claims, passes. |
+| Runtime, activation (sops-nix) | Every *declared* secret decrypts. An activation that cannot decrypt one fails, and the existing alarm path pages. | Nothing a failed activation does not surface; it does not run until a commit is deployed. |
+| Daily, `verify-pools.sh` `=== sops` | Every declared secret's `/run/secrets/<NAME>` exists and is non-empty *right now*: evidence the last activation decrypted it. Size only; no byte is read. | Content, MAC, or which key sealed it. A present file is no proof a *future* commit decrypts. |
+
+No check on this host can prove that a future commit decrypts before it is deployed: that takes
+the next activation, and the alarm path is what makes a failure visible.
