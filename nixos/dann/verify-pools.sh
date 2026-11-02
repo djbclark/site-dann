@@ -46,12 +46,20 @@ fails=0
 checks=0
 
 # The run must perform exactly this many checks, or it fails: deleting a `pool` line, a secret
-# name or the sops probe below then turns the run red instead of leaving it quietly green. Checks:
-# 1 gateway unit + 1 sops probe + 4 secrets + 5 pools (4 named + the default chain) = 11, plus one
-# more when POOL_EXPECT is set (the expect file itself). ADDING A POOL: add it to poolSecrets and
-# to the providers/fallback_providers in nixos/dann/hermes.nix, then here: the secret NAME in
-# `secret_report`'s list, a `pool` line under "=== pools", and bump this number.
-EXPECTED_BASE_CHECKS=11
+# name, a sops name or the sops probe below then turns the run red instead of leaving it quietly
+# green. Checks:
+# 1 gateway unit + 1 sops probe + 7 sops secrets (4 poolSecrets + 3 sudo-secretspec) + 4 secrets
+# + 5 pools (4 named + the default chain) = 18, plus one more when POOL_EXPECT is set (the expect
+# file itself). ADDING A POOL: add it to poolSecrets and to the providers/fallback_providers in
+# nixos/dann/hermes.nix, then here: the secret NAME in `secret_report`'s list AND in
+# `sops_report`'s list, a `pool` line under "=== pools", and bump this number by 3 (one secret
+# check, one sops check, one pool). ADDING ANY OTHER SOPS SECRET: its name in
+# `sops_report`'s list, and bump this number by one.
+EXPECTED_BASE_CHECKS=18
+
+# Where sops-nix places decrypted secrets. Overridable only so the checks can be exercised against
+# a fixture directory off the host; on the host it is always /run/secrets.
+SECRETS_DIR="${SECRETS_DIR:-/run/secrets}"
 
 # An expect file that was asked for (POOL_EXPECT set) but cannot be used is a failure, never "no
 # expectations": an unreadable or empty file would otherwise turn the length check off silently.
@@ -129,6 +137,63 @@ secret_report() {
       printf 'SECRET  %-32s ok    %4s bytes  via %s\n' "$name" "$got" "$src"
     else
       printf 'SECRET  %-32s FAIL  %s\n' "$name" "$note"
+      fails=$((fails + 1))
+    fi
+  done
+}
+
+# Every sops secret this host declares and consumes, by runtime artefact: exists, is a regular
+# file, is non-empty. sops-nix decrypts every DECLARED secret at activation, so an artefact that is
+# there and non-empty is evidence that the last activation decrypted it; one that is missing or
+# empty means decryption (or placement) broke.
+#
+# THE LIST IS DECLARED ONCE, HERE, not derived at runtime. The script runs on the host from
+# /etc/pool-verify/verify-pools.sh; the .nix modules are evaluated at build time and are not
+# installed on the host (only this file is, via environment.etc), so there is nothing to read the
+# names out of at runtime. The names are the union of exactly two lists, and adding a secret means
+# touching both this list and its module:
+#   - `poolSecrets` in nixos/dann/hermes.nix       (4 names, sopsFile secrets/pools.yaml)
+#   - `sops.secrets` in nixos/dann/sudo-secretspec.nix (3 names, sopsFile secrets/sudo-secretspec.yaml)
+# `sops_probe` (configuration.nix) is the eighth secret and has its own check above this section.
+#
+# Only existence and size are tested (`test -f`, `test -s`), which need no read permission on the
+# file, only search permission on $SECRETS_DIR. No byte of any secret is read, so none can reach a
+# variable, a note or stdout. If the directory cannot be searched the answer is unknown, and
+# unknown is a FAIL with the reason, never a pass.
+sops_report() {
+  local name path
+  for name in \
+    OPENCODE_GO_API_KEY_DJBCLARK \
+    OPENCODE_GO_API_KEY_TECHNOEUPHORA \
+    CLINE_API_KEY \
+    CLINE_PASS_KEY_2_TE \
+    GITHUB_TOKEN \
+    GMAIL_OAUTH_CLIENT_ID \
+    GMAIL_OAUTH_CLIENT_SECRET
+  do
+    path="$SECRETS_DIR/$name"
+    checks=$((checks + 1))
+    if [ -f "$path" ] && [ -s "$path" ]; then
+      printf 'SOPS    %-32s ok    present, non-empty\n' "$name"
+    elif [ ! -d "$SECRETS_DIR" ]; then
+      printf 'SOPS    %-32s FAIL  cannot evaluate: %s is not a directory (%s)\n' \
+        "$name" "$SECRETS_DIR" "$(describe_path "$SECRETS_DIR")"
+      fails=$((fails + 1))
+    elif [ ! -x "$SECRETS_DIR" ]; then
+      printf 'SOPS    %-32s FAIL  cannot evaluate: %s is not searchable by %s (%s)\n' \
+        "$name" "$SECRETS_DIR" "$(id -un)" "$(describe_path "$SECRETS_DIR")"
+      fails=$((fails + 1))
+    elif [ -f "$path" ]; then
+      printf 'SOPS    %-32s FAIL  present but empty\n' "$name"
+      fails=$((fails + 1))
+    elif [ -e "$path" ]; then
+      printf 'SOPS    %-32s FAIL  present but not a regular file (%s)\n' "$name" "$(describe_path "$path")"
+      fails=$((fails + 1))
+    elif [ -L "$path" ]; then
+      printf 'SOPS    %-32s FAIL  dangling symlink: sops-nix placed no file\n' "$name"
+      fails=$((fails + 1))
+    else
+      printf 'SOPS    %-32s FAIL  absent: sops-nix did not place it\n' "$name"
       fails=$((fails + 1))
     fi
   done
@@ -234,9 +299,9 @@ checks=$((checks + 1))
 # `test -e/-s` needs no read permission (no sudo, no content). It cannot see a probe left over from
 # an older generation; a failed activation is the nixos-upgrade unit's to report.
 checks=$((checks + 1))
-if [ -s /run/secrets/sops_probe ]; then
+if [ -s "$SECRETS_DIR/sops_probe" ]; then
   printf 'SOPS    %-32s ok    present, non-empty\n' sops_probe
-elif [ -e /run/secrets/sops_probe ]; then
+elif [ -e "$SECRETS_DIR/sops_probe" ]; then
   printf 'SOPS    %-32s FAIL  present but empty\n' sops_probe
   fails=$((fails + 1))
 else
@@ -262,6 +327,9 @@ fi
 
 printf '=== secrets\n'
 secret_report
+
+printf '=== sops\n'
+sops_report
 
 printf '=== pools\n'
 pool go-djbc          opencode-go-djbc         deepseek-v4.1-flash
