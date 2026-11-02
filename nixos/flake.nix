@@ -27,7 +27,7 @@
     inputs.nixpkgs.follows = "nixpkgs";
   };
 
-  # hermes-agent: the agent runtime serving the five gifted AI pools on this host. A flake
+  # hermes-agent: the agent runtime serving the four gifted AI pools on this host. A flake
   # input rather than a nixpkgs package because the runtime ships its own declarative NixOS
   # module (`nixosModules.default`), which is the only supported install path — the
   # `curl | bash` installer is not used anywhere here.

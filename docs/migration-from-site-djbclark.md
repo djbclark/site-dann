@@ -55,7 +55,7 @@ from the host's point of view, and reversible.
    in `site-djbclark`, promoted to its `deploy-dann`. This is the last commit that repo makes
    for this host: it deploys itself out of the job.
 5. **Deploy and verify**: `systemctl start nixos-upgrade` on the host, then confirm the running
-   system's revision is the new `site-dann` commit and `verify-pools.sh` still passes all five
+   system's revision is the new `site-dann` commit and `verify-pools.sh` still passes all four
    pools (the secrets must be re-declared in the new tree and reach `/run/secrets` unchanged).
 6. **Retire the old location**: delete `nixos/dann/` from `site-djbclark` (leaving a pointer to
    this repo), keeping `vps-primary` and the rest of its flake untouched.

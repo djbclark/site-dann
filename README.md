@@ -19,7 +19,7 @@ freely, but Dann's host facts, runbooks and diagnostics live here or in `site-pr
 | Path                            | What                                                                                       |
 | ------------------------------- | ------------------------------------------------------------------------------------------ |
 | `AGENTS.md`                     | Entry point for any agent session (identity, secrets, deployment rules). `CLAUDE.md` symlinks it. |
-| `nixos/dann/README.md`          | The host: `dann.dclark.us`, its Hermes install, the five gifted AI pools, rotation runbook  |
+| `nixos/dann/README.md`          | The host: `dann.dclark.us`, its Hermes install, the four gifted AI pools, rotation runbook  |
 | `nixos/dann/verify-pools.sh`    | Per-pool verification harness — run on the host, prints status lines only                    |
 | `docs/migration-from-site-djbclark.md` | Where the host config lives today, and the safe order for moving it here            |
 | `docs/pools.md`                 | The pool → provider → model map and what each pool is for                                    |
