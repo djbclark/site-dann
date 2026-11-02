@@ -125,7 +125,7 @@ The verifier's own verdict appears in `journalctl -u pool-verify` and `/var/lib/
 2. **A quota wall** — the pool returns HTTP 429 (`GoUsageLimitError`, "Go usage limit exceeded", or "Insufficient account funds") for every model, because the wall is per account, not per model. The key is fine and rotation does not help; it is a spend-policy decision for whoever owns that subscription, clearing when the window resets.
 3. **A pool that did not answer** — the verifier prints `FAIL … answered, but hermes switched to a fallback pool during the call: <provider> did not serve it`. That means the call completed on another pool in the chain; the named provider is the one to investigate, usually by class 1 or 2.
 
-On 2026-11-01 pool 2 (`opencode-go-technoeuphora`) was in class 2: the account returned 429 on every model, and had done so in every daily run since 2026-10-30 05:44. djbclark's ruling was to leave the pool in place and let it go green when the window resets, so the daily run legitimately reports exactly one FAIL — that pool — and exits 1 until then. A FAIL naming a different pool is new information; this one is expected.
+On 2026-11-01 pool 2 (`opencode-go-technoeuphora`) was in class 2: the account returned 429 on every model. That was new on that day — the daily runs through `2026-11-01T05:34:48Z` still passed, and the first failure was `2026-11-01T17:17:20Z`, the first run under the four-pool configuration. djbclark's ruling was to leave the pool in place and let it go green when the window resets, so the daily run legitimately reports exactly one FAIL — that pool — and exits 1 until then. A FAIL naming a different pool is new information; this one is expected, and so is the day it goes green again.
 
 ## Rotating a pool key
 
