@@ -202,8 +202,9 @@
     # failure invisible, so it stays.
     # The daily `pool-verify` run now looks at it: nixos/dann/verify-pools.sh asserts the file
     # exists and is non-empty, so a break fails that run rather than waiting to be noticed. It is
-    # now one of N secrets that run checks daily (every secret this host declares, listed once in
-    # `sops_report`), not the only one.
+    # now one of eight secrets that run checks daily (every secret this host declares: this one,
+    # the four `poolSecrets` and the three in sudo-secretspec.nix, listed once in `sops_report`),
+    # not the only one.
     secrets."sops_probe" = {
       owner = "dann";
       group = "users";
