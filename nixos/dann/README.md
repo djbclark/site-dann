@@ -43,6 +43,13 @@ Facts that are easy to get wrong again:
    to one wire surface and the models on the other surface 503.
 4. **Cline needs `max_tokens` ≥ 256**, and a `/models` 200 does **not** verify an
    opencode-go pool — the Go surface needs `Bearer`, a User-Agent and `x-opencode-session`.
+5. **There is no `nft` binary on the host, and that is not a missing firewall.** The NixOS
+   firewall here is iptables-legacy (`firewall.service`, `nixos-fw` chain, active since boot,
+   default-refuse on INPUT), so `nft list ruleset` prints nothing that means anything — reading
+   it as "no firewall" is the mistake (made 2026-11-28 by the keeper seat, then corrected with
+   `sudo iptables -S`). Check the surface with `sudo iptables -S` and `ss -tulpn` together: as of
+   2026-11-28 the only public listener is `sshd` on 22, which matches
+   `networking.firewall.allowedTCPPorts = [ 22 ]`.
 
 ## Verifying the pools
 
