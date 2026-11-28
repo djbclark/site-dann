@@ -51,6 +51,19 @@ Facts that are easy to get wrong again:
    2026-11-28 the only public listener is `sshd` on 22, which matches
    `networking.firewall.allowedTCPPorts = [ 22 ]`.
 
+## The keeper's daily marker read
+
+[`keeper-marker-read.py`](keeper-marker-read.py) is the one command that asserts the host is
+healthy end to end — nineteen checks covering the revision, the timers' last runs, the Tier 1
+mirror's sha256, the public surface, the firewall and the OVH service state, in one PASS/FAIL list
+with exit status. It runs **on the Mac, not here**, because the OVH credential lives only in the
+Mac's `sudo-secretspec`; see [`docs/keeper-daily-check.md`](../../docs/keeper-daily-check.md) for
+what each assertion means and why it is not a host-side timer.
+
+```bash
+<site-dann>/nixos/dann/keeper-marker-read.py --fetch
+```
+
 ## Verifying the pools
 
 [`verify-pools.sh`](verify-pools.sh) checks, for each pool: the credential is present and
