@@ -50,6 +50,10 @@ is the billing period. What is worth asserting is that the date **moved** — on
 `2026-12-01` where the install-time value was `2026-11-24`, which is the only evidence the API
 offers that automatic renewal actually happened.
 
+The lead's phrasing of why, kept verbatim because it is the whole argument (2026-11-28): *"'the date
+moved by about a month' is evidence of renewal; 'the date is in the future' is evidence of
+nothing."*
+
 ## What makes it safe to run unattended
 
 1. **GET only.** `ovh-api.py` refuses any non-GET method unless `--allow-write` is passed, and
@@ -63,6 +67,14 @@ offers that automatic renewal actually happened.
 4. **It can fail.** Proven deliberately on 2026-11-28 by pointing `--ovh-service` at a nonexistent
    service: three `FAIL` lines and exit `1`. A watcher that cannot fail is decoration.
 
+> **Invariant on edit (lead, 2026-11-28): keep both properties.** Exit `2` when the host is
+> unreachable so "unknown" cannot read as fine, and a deliberate proof that the script does fail.
+> Either one lost turns this back into a script that prints reassuring lines.
+>
+> **And if a future assertion seems to need a credential on the host, that is a stop-and-ask, never
+> a deployment.** The reason this design has no new secret is that the premise was checked rather
+> than complied with.
+
 ## What it deliberately does not do
 
 1. **No history.** One point in time. A daily `FAIL` is the signal; the script keeps no log of its
@@ -73,3 +85,16 @@ offers that automatic renewal actually happened.
 3. **No wake, no alert.** It asserts and prints. Delivering a `FAIL` to anyone is the keeper's job
    in the session that sees it, through `peer_mail.py` and `hermes-ping`, so there is no second
    notification path to drift out of date.
+
+## Reporting the result
+
+Silence is only correct for a green day with nothing changing (lead, 2026-11-28). Send a line to the
+lead when either happens:
+
+1. **A check fails.** The `FAIL` line, the measurement, and what was or was not done about it —
+   immediately, not at the next scheduled read.
+2. **A held decision changes, or real work begins.** The backup target being chosen, Eve's token
+   landing, the memory move starting, or the first commit of a new piece of host work. *"I do not
+   want my only view of the host to be bad news."*
+
+A wholly green daily read with nothing unblocked needs no message.
