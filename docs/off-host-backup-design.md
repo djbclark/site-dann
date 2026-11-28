@@ -1,8 +1,10 @@
 # Off-host encrypted backup design for `dann.dclark.us`
 
-Status: **Design complete, stopped before target selection (2026-11-26).** Nothing in this
-document provisions a remote target, creates an external account, spends money, or deploys to
-`deploy-dann`. Target selection (Option 1, 2, or 3 below) awaits djbclark's ruling.
+Status: **Target DECIDED 2026-11-28 by djbclark: Option 3, phased 3-2-1** (§9.1) — Option 1 (Hetzner
+append-only `rest-server`) ships first, Option 2 (independent cloud store) is added as the second leg
+before the Phase 1 Basic Memory cutover. **No build has started:** the module stays unimported until
+the target service exists off-host and the three inputs in §9.2 are known. Nothing here provisions a
+remote target, creates an external account, spends money, or deploys to `deploy-dann`.
 
 ## 1. Why this exists and the threat model
 
@@ -199,11 +201,54 @@ Note for the next `site-dann` NixOS promotion: declare `users.users.dann.linger 
 `nixos/dann/configuration.nix` so user-systemd lingering survives a full reinstall declaratively
 (currently enabled imperatively via `loginctl enable-linger dann`).
 
-## 9. Off-host target options — STOPPED HERE pending operator ruling
+## 9. Off-host target — DECIDED (2026-11-28): phased 3-2-1
 
-Nothing below is selected, requested, or provisioned. Activation of `nixos/dann/backup.nix`
-requires djbclark's choice of target and the three resulting inputs (`repository` URI, target
-credential sops key, and off-host prune schedule):
+### 9.1 Decision record
+
+**djbclark chose Option 3 on 2026-11-28**, in answer to the keeper's `/steps` walk.
+
+1. **Phase A — Option 1 first:** an append-only `restic rest-server` on the Hetzner side
+   (`vps-primary` or `vps-hub`), cross-provider from OVH BHS, **$0/mo incremental spend**, with
+   `--append-only` enforced **on the server**, not by client policy.
+2. **Phase B — Option 2 as the second leg, before the memory cutover:** an independent cloud object
+   store (Cloudflare R2 or Backblaze B2) with append-only semantics via Object Lock or a scoped
+   write-only key. Phase B is a **precondition of the Phase 1 Basic Memory move**, not a follow-up
+   to it — the point of two legs is that the entity's continuity never exists on one provider's
+   mistake away from loss.
+
+Still exactly as written: `nixos/dann/backup.nix` is not imported, `initialize` is never run from
+`dann`, and pruning never originates on `dann`. Phase B needs its own operator ruling on the
+account and billing before anything is created.
+
+### 9.2 What this asks of `site-public-djbclark` (the landing is that repo's lead)
+
+Phase A needs a service this repo cannot create: an append-only restic endpoint on a Hetzner host.
+The requirement, written here so the other lead can accept, reshape or refuse it on its merits:
+
+1. **One endpoint per backed-up host, not per user.** For `dann`: a path layout
+   `/dann-continuity` and `/dann-vault` (two repositories, two passwords — §2), served over HTTPS
+   with a certificate that is not self-signed.
+2. **Append-only enforced by the server.** `restic rest-server --append-only`, or the equivalent in
+   whatever the host runs. The host-side credential `dann` holds must be unable to `forget`,
+   `prune`, `delete` or overwrite existing data even when the command is run deliberately by root
+   on `dann`. This is the whole invariant; without it the design is theatre.
+3. **The administrative credential never reaches `dann`.** Weekly retention
+   (`--keep-daily 14 --keep-weekly 8 --keep-monthly 6`) runs from a credential that lives only on the
+   Hetzner side, on a timer there, with `restic check --read-data-subset=5%` in the same place.
+4. **Three inputs come back to this repo** and are the only things blocking the module:
+   `repository` URI per repo, the sops key name holding `dann`'s append-only target credential
+   (`RESTIC_TARGET_ENV`), and the off-host prune schedule actually installed.
+5. **Reporting back is one line per event** (`peer_mail.py` role to role), not a stream: endpoint
+   ready, or refused with the reason.
+
+Until that lands, the keeper's own duty is unchanged and cheap: the OVH single-restore-point cliff
+is **known, measured and reported daily** by `nixos/dann/keeper-marker-read.py`, which asserts
+`rotation: 1` rather than letting it hide.
+
+### 9.3 The three options as they were put to him
+
+Kept for the record, since the choice was made against these words and a later session should not
+have to reconstruct why Phase A is the cheap one:
 
 1. **Option 1 — Append-only `restic rest-server` on `vps-primary` or `vps-hub` (Hetzner):**
    Cross-provider from OVH BHS, **$0/mo** incremental spend, native `--append-only` enforcement on
@@ -213,6 +258,7 @@ credential sops key, and off-host prune schedule):
    Independent of both OVH and Hetzner, minimal spend (R2 10 GB free tier or B2 pennies/month),
    append-only via Object Lock / scoped write-only app key. Requires operator account/bucket
    creation and billing approval.
-3. **Option 3 — Phased 3-2-1 (recommended):**
+3. **Option 3 — Phased 3-2-1:**
    Ship **Option 1** first to eliminate the single-provider 24-hour cliff at $0/mo, then add
    **Option 2** as a second independent off-site leg before Phase 1 Basic Memory cutover.
+   **(Chosen 2026-11-28.)**
